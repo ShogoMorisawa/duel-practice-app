@@ -26,7 +26,7 @@ module Api
     private
 
     def deck_params
-      params.require(:deck).permit(:name)
+      params.require(:deck).permit(:name, cards: [])
     end
   end
 end
