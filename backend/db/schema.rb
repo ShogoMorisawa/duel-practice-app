@@ -26,7 +26,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_04_21_080410) do
 
   create_table "decks", force: :cascade do |t|
     t.string "name"
-    t.bigint "user_id", null: false
+    t.bigint "user_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_decks_on_user_id"

@@ -2,10 +2,10 @@ Rails.application.routes.draw do
 
   post "/login", to: "auth#login"
   resources :users, only: [:create]  # 登録用
-  resources :decks, only: [:index, :create]
+  resources :decks, only: [:index, :create, :destroy]
 
   namespace :api do
-    resources :decks, only: [:index]
+    resources :decks, only: [:index, :create, :destroy]
   end
   
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

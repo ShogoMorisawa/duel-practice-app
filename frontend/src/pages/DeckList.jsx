@@ -3,6 +3,7 @@ import axios from "axios";
 
 const DeckList = () => {
   const [decks, setDecks] = useState([]);
+  const [newDeckName, setNewDeckName] = useState("");
 
   useEffect(() => {
     axios
@@ -11,13 +12,43 @@ const DeckList = () => {
       .catch((err) => console.error("デッキ取得に失敗！", err));
   }, []);
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    axios
+      .post("http://localhost:3000/api/decks", { name: newDeckName })
+      .then((res) => {
+        setDecks([...decks, res.data]);
+        setNewDeckName("");
+      })
+      .catch((err) => console.error("デッキ追加に失敗！", err));
+  };
+
+  const handleDelete = (id) => {
+    axios
+      .delete(`http://localhost:3000/api/decks/${id}`)
+      .then((res) => {
+        setDecks(decks.filter((deck) => deck.id !== id));
+      })
+      .catch((err) => console.error("デッキ削除に失敗！", err));
+  };
+
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">デッキ一覧</h1>
+    <div>
+      <h1>デッキ一覧</h1>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={newDeckName}
+          onChange={(e) => setNewDeckName(e.target.value)}
+          placeholder="新しいデッキ名"
+        />
+        <button type="submit">追加</button>
+      </form>
       <ul>
         {decks.map((deck) => (
-          <li key={deck.id} className="border-b py-2">
+          <li key={deck.id}>
             {deck.name}
+            <button onClick={() => handleDelete(deck.id)}>削除</button>
           </li>
         ))}
       </ul>
