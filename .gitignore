@@ -1,0 +1,55 @@
+# システムファイル
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# エディタ設定
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# ログファイル
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 環境変数ファイル
+.env
+.env.local
+.env.*.local
+
+# ビルド出力
+dist/
+build/
+out/
+
+# 依存関係ディレクトリ
+node_modules/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# テストカバレッジ
+coverage/
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# 一時ファイル
+*.tmp
+*.temp
+*.bak
+*.backup
