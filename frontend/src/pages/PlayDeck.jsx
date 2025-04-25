@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useReducer } from "react";
+import { useEffect, useCallback, useReducer, useRef } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 
@@ -37,10 +37,12 @@ function reducer(state, action) {
     case ACTIONS.REMOVE_FROM_REST_DECK:
       return { ...state, restDeck: state.restDeck.slice(0, -1) };
     case ACTIONS.FLIP_CARD: {
-      const updatedHand = [...state.hand];
-      updatedHand[action.payload].isFlipped =
-        !updatedHand[action.payload].isFlipped;
-      return { ...state, hand: updatedHand };
+      const updated = state.hand.map((card) =>
+        card.id === action.payload
+          ? { ...card, isFlipped: !card.isFlipped }
+          : card
+      );
+      return { ...state, hand: updated };
     }
     default:
       return state;
@@ -50,6 +52,7 @@ function reducer(state, action) {
 function PlayDeck() {
   const { deckId } = useParams();
   const [state, dispatch] = useReducer(reducer, initialState);
+  const initialized = useRef(false);
 
   // データ取得
   useEffect(() => {
@@ -66,9 +69,12 @@ function PlayDeck() {
       });
   }, [deckId]);
 
-  // deck データが取得できたら初期シャッフル
+  // deck データが取得できたら初期シャッフル（初回のみ実行）
   useEffect(() => {
-    if (state.deck && state.deck.cards) {
+    if (!initialized.current && state.deck && state.deck.cards) {
+      // 初期化済みフラグを立てる
+      initialized.current = true;
+
       // 初期時のみ全カードをシャッフル
       const shuffledDeck = [...state.deck.cards];
       for (let i = shuffledDeck.length - 1; i > 0; i--) {
@@ -81,11 +87,13 @@ function PlayDeck() {
       const initialHand = shuffledDeck.slice(5, 10).map((card) => ({
         ...card,
         isFlipped: false, // isFlipped=falseは表向き
+        id: `hand-${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを追加
       }));
       // 残り30枚を山札として設定（全て裏向き）
       const remainingDeck = shuffledDeck.slice(10).map((card) => ({
         ...card,
         isFlipped: true, // isFlipped=trueは裏向き
+        id: `deck-${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを追加
       }));
 
       dispatch({ type: ACTIONS.SET_HAND, payload: initialHand });
@@ -111,14 +119,18 @@ function PlayDeck() {
 
     const card = state.restDeck[state.restDeck.length - 1];
     // 裏向きで引いたカードを表向きにする
-    const drawnCard = { ...card, isFlipped: false };
+    const drawnCard = {
+      ...card,
+      isFlipped: false,
+      id: `hand-${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを追加
+    };
     dispatch({ type: ACTIONS.ADD_TO_HAND, payload: drawnCard });
     dispatch({ type: ACTIONS.REMOVE_FROM_REST_DECK });
   }, [state.restDeck]);
 
-  // カードをめくる関数
-  const flipCard = useCallback((index) => {
-    dispatch({ type: ACTIONS.FLIP_CARD, payload: index });
+  // カードをめくる関数 - IDベースに変更
+  const flipCard = useCallback((cardId) => {
+    dispatch({ type: ACTIONS.FLIP_CARD, payload: cardId });
   }, []);
 
   if (state.loading) return <div>ロード中...</div>;
@@ -237,16 +249,16 @@ function PlayDeck() {
           手札 ({state.hand.length})
         </h3>
         <div className="flex gap-1 overflow-x-auto pb-1">
-          {state.hand.map((card, index) => (
+          {state.hand.map((card) => (
             <div
-              key={index}
+              key={card.id}
               className={`border shadow rounded p-1 w-12 h-16 flex flex-col justify-between text-xs cursor-pointer hover:shadow-md transition-shadow ${
                 card.isFlipped
                   ? "bg-gray-900" // 裏向きの場合は暗い背景
                   : "bg-white" // 表向きの場合は白い背景
               }`}
               draggable="true"
-              onClick={() => flipCard(index)} // クリックでカードをめくる
+              onClick={() => flipCard(card.id)} // カードIDを使ってカードをめくる
             >
               {!card.isFlipped ? (
                 <>
