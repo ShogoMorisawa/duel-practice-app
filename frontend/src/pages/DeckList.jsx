@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { NavLink } from "react-router-dom";
 
 const DeckList = () => {
   const [decks, setDecks] = useState([]);
@@ -46,10 +47,12 @@ const DeckList = () => {
       </form>
       <ul>
         {decks.map((deck) => (
-          <li key={deck.id}>
-            {deck.name}
-            <button onClick={() => handleDelete(deck.id)}>削除</button>
-          </li>
+          <NavLink to={`/decks/${deck.id}`}>
+            <li key={deck.id}>
+              {deck.name}
+              <button onClick={() => handleDelete(deck.id)}>削除</button>
+            </li>
+          </NavLink>
         ))}
       </ul>
     </div>
