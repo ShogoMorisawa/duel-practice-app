@@ -5,14 +5,17 @@ import Card from "./Card";
 /**
  * 自由配置できるドラッグ可能なカード
  * @param {Object} props
- * @param {string} props.id
- * @param {string} props.name
- * @param {string} props.cost
- * @param {boolean} props.isFlipped
- * @param {number} props.x
- * @param {number} props.y
- * @param {function} props.onMove
- * @param {function} props.onClick
+ * @param {string} props.id カードID
+ * @param {string} props.name カード名
+ * @param {string} props.cost カードコスト
+ * @param {boolean} props.isFlipped 裏向きかどうか
+ * @param {string} props.type カードタイプ (後方互換用)
+ * @param {string} props.zone カードゾーン (field, hand, deck など)
+ * @param {number} props.x X座標
+ * @param {number} props.y Y座標
+ * @param {number} props.rotation 回転角度
+ * @param {function} props.onMove 移動時のコールバック
+ * @param {function} props.onClick クリック時のコールバック
  */
 const DraggableCard = ({
   id,
@@ -20,12 +23,16 @@ const DraggableCard = ({
   cost,
   isFlipped,
   type = "default",
+  zone,
   x,
   y,
   rotation = 0,
   onMove,
   onClick,
 }) => {
+  // zoneがあればそれを使い、なければtypeを使う移行期コード
+  const actualZone = zone || type;
+
   // ドラッグの検出用
   const isDraggingRef = useRef(false);
   const dragStartTimeRef = useRef(0);
@@ -39,7 +46,7 @@ const DraggableCard = ({
   }, [x, y]);
 
   console.log(
-    `[DraggableCard] Rendering card ID: ${id} at Coords: {x: ${x}, y: ${y}}, rotation: ${rotation}`
+    `[DraggableCard] Rendering card ID: ${id} at Coords: {x: ${x}, y: ${y}}, rotation: ${rotation}, zone: ${actualZone}`
   );
 
   // ドラッグ設定
@@ -50,7 +57,7 @@ const DraggableCard = ({
         // ドラッグ開始時の時間を記録
         dragStartTimeRef.current = Date.now();
         isDraggingRef.current = true;
-        // typeプロパティを正しく渡す
+
         return {
           id,
           name,
@@ -58,7 +65,8 @@ const DraggableCard = ({
           isFlipped,
           x,
           y,
-          type: type || "field", // typeが指定されていない場合は"field"をデフォルトとする
+          type: actualZone, // 後方互換性のため
+          zone: actualZone, // 新しいプロパティ
           rotation,
         };
       },
@@ -92,7 +100,17 @@ const DraggableCard = ({
         isDragging: monitor.isDragging(),
       }),
     }),
-    [id, name, cost, isFlipped, initialPos.x, initialPos.y, rotation, onMove]
+    [
+      id,
+      name,
+      cost,
+      isFlipped,
+      initialPos.x,
+      initialPos.y,
+      rotation,
+      onMove,
+      actualZone,
+    ]
   );
 
   // 回転イベントハンドラ（右クリック）
@@ -173,6 +191,7 @@ const DraggableCard = ({
         cost={cost}
         isFlipped={isFlipped}
         type={type}
+        zone={actualZone}
         onClick={handleCardClick} // 左クリックはCardコンポーネントのクリックイベントで処理
         draggable={false}
       />

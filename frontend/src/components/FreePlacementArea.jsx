@@ -2,6 +2,15 @@ import { useRef } from "react";
 import { useDrop } from "react-dnd";
 import DraggableCard from "./DraggableCard";
 
+/**
+ * フィールドカードを自由に配置できるエリア
+ * @param {Object} props
+ * @param {Array} props.fieldCards フィールド上のカード配列
+ * @param {function} props.onDropCard カードがドロップされた時のコールバック
+ * @param {function} props.onMoveCard フィールドカードが移動した時のコールバック
+ * @param {function} props.onClickCard カードがクリックされた時のコールバック
+ * @param {string} props.className 追加のCSSクラス
+ */
 const FreePlacementArea = ({
   fieldCards = [],
   onDropCard,
@@ -33,25 +42,26 @@ const FreePlacementArea = ({
           y,
         });
 
-        if (item.type === "hand") {
+        // zone か type プロパティを確認（移行期のため両方対応）
+        const itemZone = item.zone || item.type;
+
+        if (itemZone === "hand") {
           console.log("[FreePlacementArea] Calling onDropCard (for hand drop)");
           onDropCard({ item, x, y }); // PlayDeck は {item, x, y} を受け取る
-        } else if (item.type === "field") {
-          // type が "field" かチェック
+        } else if (itemZone === "field") {
           console.log(
             "[FreePlacementArea] Calling onMoveCard (for field drop/move)"
           );
           // PlayDeck の handleMoveFieldCard は {id, x, y} を受け取る想定
-          onMoveCard({ id: item.id, x, y }); // <<< ペイロードを修正
+          onMoveCard({ id: item.id, x, y });
         } else {
           console.log(
-            "[FreePlacementArea] Unknown item type dropped:",
-            item.type
+            "[FreePlacementArea] Unknown item zone/type dropped:",
+            itemZone
           );
         }
       },
       collect: (monitor) => ({
-        // collect を追加
         isOver: !!monitor.isOver(),
         canDrop: !!monitor.canDrop(),
       }),
@@ -75,6 +85,7 @@ const FreePlacementArea = ({
           cost={card.cost}
           isFlipped={card.isFlipped}
           type={card.type || "field"}
+          zone={card.zone || "field"}
           x={card.x}
           y={card.y}
           rotation={card.rotation || 0}

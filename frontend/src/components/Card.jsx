@@ -9,26 +9,39 @@ import { useDrag } from "react-dnd";
  * @param {string} props.cost - カードのコスト
  * @param {boolean} props.isFlipped - 裏向きかどうか
  * @param {function} props.onClick - クリック時のハンドラ
- * @param {string} props.type - カードの種類（手札、シールド、山札など）
+ * @param {string} props.type - カードの種類（手札、シールド、山札など）[後方互換用]
+ * @param {string} props.zone - カードのゾーン（hand, deck, field など）
  */
-const Card = ({ id, name, cost, isFlipped, onClick, type = "default" }) => {
-  // カードタイプごとのクラス定義
-  const cardTypeClasses = {
+const Card = ({
+  id,
+  name,
+  cost,
+  isFlipped,
+  onClick,
+  type = "default",
+  zone,
+}) => {
+  // zoneがあればそれを使い、なければtypeを使う移行期コード
+  const actualZone = zone || type;
+
+  // カードゾーンごとのクラス定義
+  const cardZoneClasses = {
     hand: "bg-white border-gray-300",
     deck: "bg-gray-900 border-blue-900",
     field: "bg-white border-gray-300",
+    shield: "bg-gray-900 border-blue-900",
     default: "bg-white border-gray-300",
   };
 
   // ドラッグ機能の設定
   const [{ isDragging }, dragRef] = useDrag(() => ({
     type: "CARD",
-    item: { id, name, cost, isFlipped, type },
+    item: { id, name, cost, isFlipped, type: actualZone, zone: actualZone },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
     // シールドと山札はドラッグ不可
-    canDrag: () => type !== "shield" && type !== "deck",
+    canDrag: () => actualZone !== "shield" && actualZone !== "deck",
   }));
 
   // カードのベーススタイル
@@ -45,17 +58,17 @@ const Card = ({ id, name, cost, isFlipped, onClick, type = "default" }) => {
 
   // ドラッグ可能なカードのスタイル
   const dragableClasses =
-    type !== "shield" && type !== "deck" ? "cursor-move" : "";
+    actualZone !== "shield" && actualZone !== "deck" ? "cursor-move" : "";
 
   // 裏面/表面スタイル
-  const flipClasses = isFlipped ? "bg-gray-900" : cardTypeClasses[type];
+  const flipClasses = isFlipped ? "bg-gray-900" : cardZoneClasses[actualZone];
 
   return (
     <div
       ref={dragRef}
       className={`${baseClasses} ${dragClasses} ${clickClasses} ${flipClasses} ${dragableClasses}`}
       onClick={onClick}
-      draggable={type !== "shield" && type !== "deck"}
+      draggable={actualZone !== "shield" && actualZone !== "deck"}
     >
       {!isFlipped && (
         <>
