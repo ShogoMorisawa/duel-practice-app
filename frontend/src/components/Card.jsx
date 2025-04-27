@@ -15,10 +15,8 @@ const Card = ({ id, name, cost, isFlipped, onClick, type = "default" }) => {
   // カードタイプごとのクラス定義
   const cardTypeClasses = {
     hand: "bg-white border-gray-300",
-    shield: "bg-gray-900 border-blue-500",
     deck: "bg-gray-900 border-blue-900",
-    mana: "bg-yellow-100 border-yellow-300",
-    battle: "bg-white border-gray-300",
+    field: "bg-white border-gray-300",
     default: "bg-white border-gray-300",
   };
 

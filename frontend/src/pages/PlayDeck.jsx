@@ -4,7 +4,9 @@ import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import axios from "axios";
 import Card from "../components/Card";
-import DropZone from "../components/DropZone";
+import DropZone from "../components/DropZone"; // DropZoneを使用する場合 (現状未使用)
+import FreePlacementArea from "../components/FreePlacementArea";
+import DraggableCard from "../components/DraggableCard"; // FreePlacementArea内で使用
 
 // アクションタイプを定義
 const ACTIONS = {
@@ -15,22 +17,20 @@ const ACTIONS = {
   ADD_TO_HAND: "add_to_hand",
   REMOVE_FROM_HAND: "remove_from_hand",
   REMOVE_FROM_REST_DECK: "remove_from_rest_deck",
-  FLIP_CARD: "flip_card",
-  ADD_TO_BATTLE_ZONE: "add_to_battle_zone",
-  ADD_TO_MANA_ZONE: "add_to_mana_zone",
-  ADD_TO_GRAVEYARD: "add_to_graveyard",
-  MOVE_CARD: "move_card",
+  ADD_TO_FIELD: "add_to_field",
+  UPDATE_FIELD_CARD_POSITION: "update_field_card_position",
+  REMOVE_FROM_FIELD: "remove_from_field", // 将来的に使用する場合
+  FLIP_HAND_CARD: "flip_hand_card",
+  FLIP_FIELD_CARD: "flip_field_card",
 };
 
-// 初期状態を定義
+// 初期状態
 const initialState = {
-  deck: null,
-  restDeck: [],
-  hand: [],
-  battleZone: [],
-  manaZone: [],
-  graveyard: [],
-  loading: true,
+  deck: null, // デッキ情報 (name, cards配列など)
+  restDeck: [], // 山札 (カードオブジェクトの配列)
+  hand: [], // 手札のカード (カードオブジェクトの配列)
+  fieldCards: [], // 場に配置されたカード (カードオブジェクト + 座標 の配列)
+  loading: true, // ローディング状態
 };
 
 // リデューサー関数を定義
@@ -45,398 +45,448 @@ function reducer(state, action) {
     case ACTIONS.SET_HAND:
       return { ...state, hand: action.payload };
     case ACTIONS.ADD_TO_HAND:
+      // すでに同じカードIDが手札にある場合は追加しない（ドロー重複防止）
+      if (state.hand.some((card) => card.id === action.payload.id)) {
+        return state;
+      }
       return { ...state, hand: [...state.hand, action.payload] };
     case ACTIONS.REMOVE_FROM_HAND: {
-      return {
+      const newState = {
         ...state,
         hand: state.hand.filter((card) => card.id !== action.payload.id),
       };
+      return newState;
     }
     case ACTIONS.REMOVE_FROM_REST_DECK:
+      // 山札から1枚取り除く (最新のものを想定)
       return { ...state, restDeck: state.restDeck.slice(0, -1) };
-    case ACTIONS.FLIP_CARD: {
-      const updated = state.hand.map((card) =>
-        card.id === action.payload
-          ? { ...card, isFlipped: !card.isFlipped }
-          : card
-      );
-      return { ...state, hand: updated };
-    }
-    case ACTIONS.ADD_TO_BATTLE_ZONE:
-      return {
-        ...state,
-        battleZone: [...state.battleZone, action.payload],
-      };
-    case ACTIONS.ADD_TO_MANA_ZONE:
-      return {
-        ...state,
-        manaZone: [...state.manaZone, action.payload],
-      };
-    case ACTIONS.ADD_TO_GRAVEYARD:
-      return {
-        ...state,
-        graveyard: [...state.graveyard, action.payload],
-      };
-    case ACTIONS.MOVE_CARD: {
-      const { card, sourceZone, targetZone } = action.payload;
 
-      // 元のゾーンからカードを削除
-      const sourceState = { ...state };
-      if (sourceZone === "hand") {
-        sourceState.hand = sourceState.hand.filter((c) => c.id !== card.id);
-      } else if (sourceZone === "battleZone") {
-        sourceState.battleZone = sourceState.battleZone.filter(
-          (c) => c.id !== card.id
-        );
-      } else if (sourceZone === "manaZone") {
-        sourceState.manaZone = sourceState.manaZone.filter(
-          (c) => c.id !== card.id
-        );
+    // --- fieldCards 操作 ---
+    case ACTIONS.ADD_TO_FIELD: {
+      if (state.fieldCards.some((card) => card.id === action.payload.id)) {
+        return state;
       }
-
-      // 対象のゾーンにカードを追加
-      if (targetZone === "battleZone") {
-        sourceState.battleZone = [...sourceState.battleZone, card];
-      } else if (targetZone === "manaZone") {
-        sourceState.manaZone = [...sourceState.manaZone, card];
-      } else if (targetZone === "graveyard") {
-        sourceState.graveyard = [...sourceState.graveyard, card];
-      } else if (targetZone === "hand") {
-        sourceState.hand = [...sourceState.hand, card];
-      }
-
-      return sourceState;
+      const newState = {
+        ...state,
+        fieldCards: [...state.fieldCards, action.payload],
+      };
+      // ★★★ 更新後の state.fieldCards を確認 ★★★
+      return newState;
     }
+    case ACTIONS.UPDATE_FIELD_CARD_POSITION: {
+      return {
+        ...state,
+        fieldCards: state.fieldCards.map((card) =>
+          card.id === action.payload.id
+            ? {
+                ...card,
+                x: action.payload.x,
+                y: action.payload.y,
+                rotation: action.payload.rotation, // rotation値も更新
+              }
+            : card
+        ),
+      };
+    }
+    case ACTIONS.REMOVE_FROM_FIELD: // 将来的に場からカードを消す場合
+      return {
+        ...state,
+        fieldCards: state.fieldCards.filter(
+          (card) => card.id !== action.payload.id
+        ),
+      };
+
+    // --- カード反転 ---
+    case ACTIONS.FLIP_HAND_CARD:
+      return {
+        ...state,
+        hand: state.hand.map((card) =>
+          card.id === action.payload // payload は cardId
+            ? { ...card, isFlipped: !card.isFlipped }
+            : card
+        ),
+      };
+    case ACTIONS.FLIP_FIELD_CARD:
+      return {
+        ...state,
+        fieldCards: state.fieldCards.map((card) =>
+          card.id === action.payload // payload は cardId
+            ? { ...card, isFlipped: !card.isFlipped }
+            : card
+        ),
+      };
+
     default:
       return state;
   }
 }
 
+// --- メインコンポーネント ---
 function PlayDeck() {
   const { deckId } = useParams();
   const [state, dispatch] = useReducer(reducer, initialState);
-  const initialized = useRef(false);
+  const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
 
-  // データ取得
+  // 1. デッキデータ取得 Effect
   useEffect(() => {
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
     axios
       .get(`http://localhost:3000/api/decks/${deckId}`)
       .then((res) => {
-        dispatch({ type: ACTIONS.SET_DECK, payload: res.data });
+        // APIレスポンスに cards 配列が含まれているか確認
+        if (res.data && Array.isArray(res.data.cards)) {
+          dispatch({ type: ACTIONS.SET_DECK, payload: res.data });
+        } else {
+          console.error(
+            "API response is missing or has invalid 'cards' array:",
+            res.data
+          );
+          // エラー状態にするか、空のデッキとして扱うなどの処理
+          dispatch({
+            type: ACTIONS.SET_DECK,
+            payload: { ...res.data, cards: [] },
+          }); // 仮に空配列で設定
+        }
         dispatch({ type: ACTIONS.SET_LOADING, payload: false });
       })
       .catch((err) => {
         console.error("デッキ取得に失敗！", err);
         dispatch({ type: ACTIONS.SET_LOADING, payload: false });
+        // エラー表示などの処理を追加しても良い
       });
-  }, [deckId]);
+  }, [deckId]); // deckId が変わった時だけ再実行
 
-  // deck データが取得できたら初期シャッフル（初回のみ実行）
+  // 2. 初期設定 Effect (シャッフル、手札配布)
   useEffect(() => {
-    if (!initialized.current && state.deck && state.deck.cards) {
-      // 初期化済みフラグを立てる
-      initialized.current = true;
+    // 初期化フラグが false で、deckデータとcards配列が存在する場合のみ実行
+    if (
+      !initialized.current &&
+      state.deck &&
+      state.deck.cards &&
+      state.deck.cards.length > 0
+    ) {
+      // --- このブロックは初回のみ実行 ---
+      initialized.current = true; // フラグを立てて再実行を防ぐ
 
-      // 初期時のみ全カードをシャッフル
-      const shuffledDeck = [...state.deck.cards];
-      for (let i = shuffledDeck.length - 1; i > 0; i--) {
+      const cardNames = [...state.deck.cards]; // APIからのカード名配列
+
+      // カード名をシャッフル
+      for (let i = cardNames.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+        [cardNames[i], cardNames[j]] = [cardNames[j], cardNames[i]];
       }
 
-      // 最初の5枚をシールド用（State管理なし、UI表示のみ）
-      // 次の5枚（5～9）を手札として設定（表向き）
-      const initialHand = shuffledDeck.slice(5, 10).map((card) => ({
-        ...card,
-        isFlipped: false, // isFlipped=falseは表向き
-        id: `hand-${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを追加
-      }));
-      // 残り30枚を山札として設定（全て裏向き）
-      const remainingDeck = shuffledDeck.slice(10).map((card) => ({
-        ...card,
-        isFlipped: true, // isFlipped=trueは裏向き
-        id: `deck-${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを追加
-      }));
+      // カードオブジェクトを生成するヘルパー関数
+      const createCardObject = (name, type, index, isFlipped = true) => ({
+        id: `${type}-${name}-${index}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`, // より一意性の高いID
+        name: name,
+        cost: null, // APIにコスト情報がないため null
+        isFlipped: isFlipped,
+        type: type, // 'hand', 'deck' などのタイプ
+        // x, y 座標は場に出た時に設定
+      });
+
+      // 最初の5枚はシールド (UI表示のみ、State管理外)
+
+      // 次の5枚（インデックス 5〜9）を手札に
+      const initialHand = cardNames.slice(5, 10).map(
+        (name, i) => createCardObject(name, "hand", i, false) // 手札は表向き (isFlipped: false)
+      );
+
+      // 残り（インデックス 10〜）を山札に
+      const remainingDeck = cardNames.slice(10).map(
+        (name, i) => createCardObject(name, "deck", i, true) // 山札は裏向き (isFlipped: true)
+      );
 
       dispatch({ type: ACTIONS.SET_HAND, payload: initialHand });
       dispatch({ type: ACTIONS.SET_REST_DECK, payload: remainingDeck });
+      // --- 初回実行ブロックここまで ---
     }
-  }, [state.deck]);
+  }, [state.deck]); // state.deck が変更されたら実行 (データ取得後に実行される)
 
-  // シャッフル関数
-  const shuffleDeck = useCallback(() => {
-    if (!state.deck || !state.deck.cards) return;
+  // --- コールバック関数 ---
 
-    const shuffledDeck = [...state.restDeck];
-    for (let i = shuffledDeck.length - 1; i > 0; i--) {
+  // 山札シャッフル
+  const handleShuffleDeck = useCallback(() => {
+    if (state.restDeck.length <= 1) return; // 1枚以下ならシャッフル不要
+
+    const shuffled = [...state.restDeck];
+    for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    dispatch({ type: ACTIONS.SET_REST_DECK, payload: shuffledDeck });
+    dispatch({ type: ACTIONS.SET_REST_DECK, payload: shuffled });
   }, [state.restDeck]);
 
-  // カードを引く関数
-  const drawCard = useCallback(() => {
-    if (state.restDeck.length === 0) return;
+  // カードを引く
+  const handleDrawCard = useCallback(() => {
+    if (state.restDeck.length === 0) return; // 山札が0枚なら引けない
 
-    const card = state.restDeck[state.restDeck.length - 1];
-    // 裏向きで引いたカードを表向きにする
-    const drawnCard = {
-      ...card,
-      isFlipped: false,
-      id: `hand-${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを追加
+    // 山札の一番上のカードを取得 (restDeckの最後尾と仮定)
+    const drawnCardFromDeck = state.restDeck[state.restDeck.length - 1];
+
+    // 手札用の新しいカードオブジェクトを作成（ID変更、表向きにする）
+    const cardForHand = {
+      ...drawnCardFromDeck,
+      id: `hand-${drawnCardFromDeck.name}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`, // 新しい手札ID
+      isFlipped: false, // 表向きにする
+      type: "hand", // タイプを手札に
     };
-    dispatch({ type: ACTIONS.ADD_TO_HAND, payload: drawnCard });
-    dispatch({ type: ACTIONS.REMOVE_FROM_REST_DECK });
+
+    dispatch({ type: ACTIONS.ADD_TO_HAND, payload: cardForHand });
+    dispatch({ type: ACTIONS.REMOVE_FROM_REST_DECK }); // 山札から削除
   }, [state.restDeck]);
 
-  // カードをめくる関数 - IDベースに変更
-  const flipCard = useCallback((cardId) => {
-    dispatch({ type: ACTIONS.FLIP_CARD, payload: cardId });
+  // 手札のカードを反転
+  const handleFlipHandCard = useCallback((cardId) => {
+    dispatch({ type: ACTIONS.FLIP_HAND_CARD, payload: cardId });
   }, []);
 
-  // カードをドロップ処理するハンドラ
-  const handleCardDrop = useCallback((card, targetZone) => {
-    console.log(`カードをドロップ: ${card.name} を ${targetZone} に`);
-
-    if (card.type === "hand") {
-      // 手札から他のゾーンに移動
-      dispatch({
-        type: ACTIONS.MOVE_CARD,
-        payload: {
-          card,
-          sourceZone: "hand",
-          targetZone,
-        },
-      });
-    } else if (card.type === "battle") {
-      // バトルゾーンから他のゾーンに移動
-      dispatch({
-        type: ACTIONS.MOVE_CARD,
-        payload: {
-          card,
-          sourceZone: "battleZone",
-          targetZone,
-        },
-      });
-    } else if (card.type === "mana") {
-      // マナゾーンから他のゾーンに移動
-      dispatch({
-        type: ACTIONS.MOVE_CARD,
-        payload: {
-          card,
-          sourceZone: "manaZone",
-          targetZone,
-        },
-      });
-    }
+  // 場のカードを反転
+  const handleFlipFieldCard = useCallback((cardId) => {
+    dispatch({ type: ACTIONS.FLIP_FIELD_CARD, payload: cardId });
   }, []);
 
-  if (state.loading) return <div>ロード中...</div>;
-  if (!state.deck) return <div>デッキが見つかりません</div>;
+  // 手札から場へのドロップ処理 (FreePlacementArea用)
+  const handleDropToField = useCallback(
+    (dropInfo) => {
+      // dropInfoは { item, x, y } 形式で渡される
+      const { item, x, y } = dropInfo;
 
-  // カード1枚分の高さを定義
-  const cardHeight = "h-24"; // 基本的なカードの高さ
+      if (!item) {
+        console.error("[PlayDeck] handleDropToField: item is undefined");
+        return;
+      }
 
-  // ダミーのシールドカード（表示用）
+      if (item.type === "hand") {
+        // 手札からドロップされた場合
+        const droppedCard = state.hand.find(
+          (card) => card && card.id === item.id
+        );
+
+        if (!droppedCard) {
+          console.error(
+            `[PlayDeck] Card with id ${item.id} not found in hand.`
+          );
+          return;
+        }
+
+        // 場に置くためのカード情報を作成
+        const cardForField = {
+          ...droppedCard,
+          id: `field-${droppedCard.name}-${Math.random()
+            .toString(36)
+            .substr(2, 9)}`,
+          type: "field",
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: 0, // 初期回転は0度
+        };
+        // 手札から削除して場に追加
+        dispatch({
+          type: ACTIONS.REMOVE_FROM_HAND,
+          payload: { id: item.id },
+        });
+
+        dispatch({
+          type: ACTIONS.ADD_TO_FIELD,
+          payload: cardForField,
+        });
+      }
+    },
+    [state.hand]
+  );
+
+  // 場のカードの位置更新 (DraggableCard用)
+  const handleMoveFieldCard = useCallback(
+    (moveInfo) => {
+      // moveInfoは { id, x, y } の形式
+      const { id, x, y } = moveInfo;
+
+      // 既存のカードを見つけて、その回転値を保持する
+      const existingCard = state.fieldCards.find((card) => card.id === id);
+      const rotation = existingCard ? existingCard.rotation || 0 : 0;
+
+      dispatch({
+        type: ACTIONS.UPDATE_FIELD_CARD_POSITION,
+        payload: {
+          id,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation, // 既存の回転値を保持
+        },
+      });
+    },
+    [state.fieldCards]
+  );
+
+  // --- レンダリング ---
+
+  if (state.loading)
+    return <div className="p-4 text-center">デッキデータをロード中...</div>;
+  if (!state.deck)
+    return (
+      <div className="p-4 text-center text-red-600">
+        デッキ情報の読み込みに失敗しました。
+      </div>
+    );
+
+  // ダミーのシールドカード（表示用、State管理外）
   const shieldCards = [...Array(5)].map((_, i) => ({
     id: `shield-${i}`,
     name: "シールド",
     isFlipped: true,
+    type: "shield",
   }));
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="relative flex flex-col h-screen bg-green-50">
+      <div className="flex flex-col h-screen bg-gray-100">
         {/* ヘッダー */}
-        <header className="bg-gray-800 text-white shadow p-2 text-lg font-bold flex justify-between items-center">
-          <div>{state.deck.name} - プレイ画面</div>
-          <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm">
-            メニュー
-          </button>
+        <header className="bg-gray-800 text-white shadow p-2 text-sm font-semibold flex justify-between items-center">
+          <div>{state.deck.name} - プレイ</div>
+          {/* 必要ならメニューボタンなどを追加 */}
         </header>
 
-        {/* ゲーム領域 - flex-1で残りの高さを全て使う */}
-        <div className="flex-1 flex flex-col p-2 overflow-hidden">
-          {/* バトルゾーン - 残りの高さを全て使用 */}
-          <DropZone
-            type="battleZone"
-            onDrop={handleCardDrop}
-            className="flex-1 bg-green-100 rounded-lg shadow-inner border border-green-300 relative mb-2 overflow-auto"
-          >
-            <div className="absolute top-2 left-4 text-sm font-semibold text-green-800">
-              バトルゾーン
-            </div>
-            {state.battleZone.length > 0 ? (
-              <div className="flex flex-wrap gap-2 p-8">
-                {state.battleZone.map((card) => (
-                  <Card
-                    key={card.id}
-                    id={card.id}
-                    name={card.name}
-                    cost={card.cost}
-                    isFlipped={card.isFlipped || false}
-                    type="battle"
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="flex justify-center items-center h-full text-gray-500 italic">
-                ドラッグしてカードを配置
-              </div>
-            )}
-          </DropZone>
-
-          {/* 山札エリア - 高さをカード1枚分に固定 */}
-          <div
-            className={`${cardHeight} bg-blue-50 rounded-lg shadow-inner border border-blue-200 mb-2 flex items-center px-2 py-1`}
-          >
-            {/* シールドゾーン */}
-            <div className="flex-1 mr-4">
-              <div className="text-xs font-semibold text-green-800 mb-1 text-center">
-                シールド
-              </div>
-              <div className="flex gap-1 justify-center">
-                {shieldCards.map((card) => (
-                  <Card
-                    key={card.id}
-                    id={card.id}
-                    name={card.name}
-                    isFlipped={card.isFlipped}
-                    type="shield"
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* 山札 */}
-            <div className="text-center">
-              <div className="text-xs font-semibold text-green-800 mb-1">
-                山札
-              </div>
-              <div className="relative w-12 h-16">
-                {/* 山札の重なり表現 */}
-                <div className="absolute top-0 left-0">
-                  <Card
-                    id="deck-top-2"
-                    name="山札"
-                    isFlipped={true}
-                    type="deck"
-                  />
-                </div>
-                <div className="absolute top-0.5 left-0.5">
-                  <Card
-                    id="deck-top-1"
-                    name="山札"
-                    isFlipped={true}
-                    type="deck"
-                  />
-                </div>
-                <div className="absolute top-1 left-1 flex items-center justify-center">
-                  <Card
-                    id="deck-top"
-                    name="山札"
-                    isFlipped={true}
-                    type="deck"
-                  />
-                  <span className="absolute text-white font-bold text-xs">
-                    {state.restDeck.length}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 墓地 */}
-            <DropZone
-              type="graveyard"
-              onDrop={handleCardDrop}
-              className="text-center ml-4"
-            >
-              <div className="text-xs font-semibold text-green-800 mb-1">
-                墓地
-              </div>
-              <div className="w-12 h-16 rounded border border-gray-400 border-dashed flex items-center justify-center">
-                <span className="text-gray-500 font-bold text-xs">
-                  {state.graveyard.length}
-                </span>
-              </div>
-            </DropZone>
-
-            {/* ボタン */}
-            <div className="flex flex-col gap-1 ml-4">
-              <button
-                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded text-xs"
-                onClick={shuffleDeck}
-              >
-                シャッフル
-              </button>
-              <button
-                className={`${
-                  state.restDeck.length === 0
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-green-500 hover:bg-green-600"
-                } text-white font-bold py-1 px-2 rounded text-xs`}
-                onClick={drawCard}
-                disabled={state.restDeck.length === 0}
-              >
-                ドロー
-              </button>
-            </div>
+        {/* メインゲーム領域 */}
+        <div className="flex-1 flex flex-col p-1 md:p-2 overflow-hidden">
+          {/* プレイエリア (FreePlacementArea) */}
+          <div className="flex-1 relative mb-1 md:mb-2">
+            <FreePlacementArea
+              fieldCards={state.fieldCards} // 場にあるカードの配列
+              onDropCard={handleDropToField} // カードがドロップされた時の処理
+              onMoveCard={handleMoveFieldCard} // 場にあるカードが移動した時の処理
+              onClickCard={handleFlipFieldCard} // 場にあるカードがクリックされた時の処理 (反転)
+              className="w-full h-full bg-green-100 rounded shadow-inner border border-green-300 overflow-auto" // overflow-autoを追加
+            />
           </div>
 
-          {/* マナゾーン - 高さをカード1枚分に固定 */}
-          <DropZone
-            type="manaZone"
-            onDrop={handleCardDrop}
-            className={`${cardHeight} bg-yellow-50 rounded-lg shadow-inner border border-yellow-200 relative mb-2`}
-          >
-            <div className="absolute top-2 left-4 text-xs font-semibold text-yellow-800">
-              マナゾーン ({state.manaZone.length})
-            </div>
-            {state.manaZone.length > 0 ? (
-              <div className="flex flex-wrap gap-1 p-2 pt-6 overflow-auto">
-                {state.manaZone.map((card) => (
-                  <Card
-                    key={card.id}
-                    id={card.id}
-                    name={card.name}
-                    cost={card.cost}
-                    isFlipped={false}
-                    type="mana"
-                  />
-                ))}
+          {/* 下部ゾーン (シールド、山札、墓地、手札など) */}
+          <div className="flex flex-col gap-1 md:gap-2">
+            {/* シールド・山札・墓地エリア */}
+            <div className="bg-blue-50 rounded shadow border border-blue-200 p-1 md:p-2 flex justify-between items-center gap-2 md:gap-4">
+              {/* シールドゾーン */}
+              <div className="text-center">
+                <div className="text-xs font-semibold text-blue-800 mb-1">
+                  シールド
+                </div>
+                <div className="flex gap-1">
+                  {shieldCards.map((card) => (
+                    <Card key={card.id} {...card} />
+                  ))}
+                </div>
               </div>
-            ) : (
-              <div className="flex justify-center items-center w-full h-full text-gray-500 italic text-sm">
-                ドラッグしてマナを配置
-              </div>
-            )}
-          </DropZone>
-        </div>
 
-        {/* 手札（画面下部固定） - 高さをカード1枚分に固定 */}
-        <div className={`${cardHeight} bg-gray-800 border-t p-2 shadow-lg`}>
-          <h3 className="text-xs font-semibold mb-1 text-white">
-            手札 ({state.hand.length})
-          </h3>
-          <div className="flex gap-1 overflow-x-auto pb-1">
-            {state.hand.map((card) => (
-              <Card
-                key={card.id}
-                id={card.id}
-                name={card.name}
-                cost={card.cost}
-                isFlipped={card.isFlipped}
-                onClick={() => flipCard(card.id)}
-                type="hand"
-              />
-            ))}
-            {state.hand.length === 0 && (
-              <div className="flex justify-center items-center w-full text-gray-400 italic text-xs">
-                手札がありません。ドローボタンを押してカードを引きましょう。
+              {/* 山札 */}
+              <div className="text-center">
+                <div className="text-xs font-semibold text-blue-800 mb-1">
+                  山札
+                </div>
+                <div
+                  className="relative w-12 h-16 cursor-pointer"
+                  onClick={handleDrawCard}
+                  title="クリックしてドロー"
+                >
+                  {state.restDeck.length > 0 ? (
+                    <>
+                      {/* 重なり表現 (少しずらす) */}
+                      {state.restDeck.length > 2 && (
+                        <div className="absolute top-0 left-0">
+                          <Card
+                            id="deck-dummy-2"
+                            name="山札"
+                            isFlipped={true}
+                            type="deck"
+                          />
+                        </div>
+                      )}
+                      {state.restDeck.length > 1 && (
+                        <div className="absolute top-0.5 left-0.5">
+                          <Card
+                            id="deck-dummy-1"
+                            name="山札"
+                            isFlipped={true}
+                            type="deck"
+                          />
+                        </div>
+                      )}
+                      <div className="absolute top-1 left-1">
+                        <Card
+                          id="deck-top"
+                          name="山札"
+                          isFlipped={true}
+                          type="deck"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-sm pointer-events-none">
+                          {state.restDeck.length}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-12 h-16 rounded border border-gray-400 border-dashed flex items-center justify-center">
+                      <span className="text-gray-500 font-bold text-xs">0</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* 墓地 (今は表示のみ) */}
+              <div className="text-center">
+                <div className="text-xs font-semibold text-gray-600 mb-1">
+                  墓地
+                </div>
+                <div className="w-12 h-16 rounded border border-gray-400 border-dashed flex items-center justify-center">
+                  {/* 将来的に墓地のカードを表示 */}
+                  <span className="text-gray-500 font-bold text-xs">0</span>
+                </div>
+              </div>
+
+              {/* 操作ボタン */}
+              <div className="flex flex-col gap-1">
+                <button
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded text-xs disabled:bg-gray-400"
+                  onClick={handleShuffleDeck}
+                  disabled={state.restDeck.length <= 1}
+                  title="山札をシャッフル"
+                >
+                  シャッフル
+                </button>
+                <button
+                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded text-xs disabled:bg-gray-400"
+                  onClick={handleDrawCard}
+                  disabled={state.restDeck.length === 0}
+                  title="山札からカードを1枚引く"
+                >
+                  ドロー
+                </button>
+              </div>
+            </div>
+
+            {/* 手札エリア */}
+            <div className="bg-gray-800 p-1 md:p-2 rounded shadow">
+              <h3 className="text-xs font-semibold mb-1 text-white">
+                手札 ({state.hand.length})
+              </h3>
+              <div className="flex gap-1 overflow-x-auto pb-1 min-h-[4.5rem]">
+                {state.hand.length > 0 ? (
+                  state.hand.map((card) => (
+                    <Card
+                      key={card.id}
+                      {...card} // カード情報をまとめて渡す
+                      onClick={() => handleFlipHandCard(card.id)} // 手札クリックで反転
+                    />
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center w-full text-gray-400 italic text-xs">
+                    手札はありません。
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
