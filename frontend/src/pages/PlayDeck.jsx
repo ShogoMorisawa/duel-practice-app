@@ -21,7 +21,7 @@ const ACTIONS = {
   UPDATE_FIELD_CARD_POSITION: "update_field_card_position",
   REMOVE_FROM_FIELD: "remove_from_field", // 将来的に使用する場合
   FLIP_HAND_CARD: "flip_hand_card",
-  FLIP_FIELD_CARD: "flip_field_card",
+  ROTATE_FIELD_CARD: "rotate_field_card", // FLIP_FIELD_CARDの代わりに回転アクション
 };
 
 // 初期状態
@@ -106,15 +106,26 @@ function reducer(state, action) {
             : card
         ),
       };
-    case ACTIONS.FLIP_FIELD_CARD:
-      return {
+    case ACTIONS.ROTATE_FIELD_CARD: {
+      // payload は { id, rotation } の形式
+      console.log("[DEBUG] ROTATE_FIELD_CARD action received:", action.payload);
+      const targetCard = state.fieldCards.find(
+        (card) => card.id === action.payload.id
+      );
+      console.log("[DEBUG] Target card before rotation:", targetCard);
+
+      const newState = {
         ...state,
         fieldCards: state.fieldCards.map((card) =>
-          card.id === action.payload // payload は cardId
-            ? { ...card, isFlipped: !card.isFlipped }
+          card.id === action.payload.id
+            ? { ...card, rotation: action.payload.rotation }
             : card
         ),
       };
+
+      console.log("[DEBUG] fieldCards after rotation:", newState.fieldCards);
+      return newState;
+    }
 
     default:
       return state;
@@ -246,14 +257,43 @@ function PlayDeck() {
     dispatch({ type: ACTIONS.FLIP_HAND_CARD, payload: cardId });
   }, []);
 
-  // 場のカードを反転
-  const handleFlipFieldCard = useCallback((cardId) => {
-    dispatch({ type: ACTIONS.FLIP_FIELD_CARD, payload: cardId });
-  }, []);
+  // 場のカードを回転（クリック時）
+  const handleRotateFieldCard = useCallback(
+    (cardId) => {
+      console.log("[DEBUG] handleRotateFieldCard called with cardId:", cardId);
+
+      // 該当カードを検索
+      const card = state.fieldCards.find((card) => card.id === cardId);
+      console.log("[DEBUG] Found card:", card);
+
+      if (!card) {
+        console.error("[ERROR] Card not found with id:", cardId);
+        return;
+      }
+
+      // 現在の回転角度から90度回転させる
+      const currentRotation = card.rotation || 0;
+      const newRotation = (currentRotation + 90) % 360;
+      console.log(
+        `[DEBUG] Rotating card from ${currentRotation} to ${newRotation} degrees`
+      );
+
+      dispatch({
+        type: ACTIONS.ROTATE_FIELD_CARD,
+        payload: {
+          id: cardId,
+          rotation: newRotation,
+        },
+      });
+    },
+    [state.fieldCards]
+  );
 
   // 手札から場へのドロップ処理 (FreePlacementArea用)
   const handleDropToField = useCallback(
     (dropInfo) => {
+      console.log("[DEBUG] handleDropToField called with:", dropInfo);
+
       // dropInfoは { item, x, y } 形式で渡される
       const { item, x, y } = dropInfo;
 
@@ -269,9 +309,7 @@ function PlayDeck() {
         );
 
         if (!droppedCard) {
-          console.error(
-            `[PlayDeck] Card with id ${item.id} not found in hand.`
-          );
+          console.error(`[ERROR] Card not found with id: ${item.id}`);
           return;
         }
 
@@ -281,11 +319,16 @@ function PlayDeck() {
           id: `field-${droppedCard.name}-${Math.random()
             .toString(36)
             .substr(2, 9)}`,
-          type: "field",
+          type: "field", // typeを明示的に"field"に設定
           x: Math.round(x),
           y: Math.round(y),
           rotation: 0, // 初期回転は0度
         };
+        console.log(
+          "[DEBUG] Creating field card with type:",
+          cardForField.type
+        );
+
         // 手札から削除して場に追加
         dispatch({
           type: ACTIONS.REMOVE_FROM_HAND,
@@ -360,7 +403,7 @@ function PlayDeck() {
               fieldCards={state.fieldCards} // 場にあるカードの配列
               onDropCard={handleDropToField} // カードがドロップされた時の処理
               onMoveCard={handleMoveFieldCard} // 場にあるカードが移動した時の処理
-              onClickCard={handleFlipFieldCard} // 場にあるカードがクリックされた時の処理 (反転)
+              onClickCard={handleRotateFieldCard} // 場のカードクリック時に回転
               className="w-full h-full bg-green-100 rounded shadow-inner border border-green-300 overflow-auto" // overflow-autoを追加
             />
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDrag } from "react-dnd";
 import Card from "./Card";
 
@@ -26,10 +26,12 @@ const DraggableCard = ({
   onMove,
   onClick,
 }) => {
+  // ドラッグの検出用
+  const isDraggingRef = useRef(false);
+  const dragStartTimeRef = useRef(0);
+
   // 位置情報のステート管理
   const [initialPos, setInitialPos] = useState({ x, y });
-  // 現在のポジションはpropsから直接使用するため変数は不要
-  // 変更があった場合はコールバックで親コンポーネントに伝える
 
   // propsのx, yが変更されたらステートを更新
   useEffect(() => {
@@ -40,10 +42,26 @@ const DraggableCard = ({
     `[DraggableCard] Rendering card ID: ${id} at Coords: {x: ${x}, y: ${y}}, rotation: ${rotation}`
   );
 
+  // ドラッグ設定
   const [{ isDragging }, dragRef] = useDrag(
     () => ({
       type: "CARD",
-      item: { id, name, cost, isFlipped, x, y, type: "field", rotation },
+      item: () => {
+        // ドラッグ開始時の時間を記録
+        dragStartTimeRef.current = Date.now();
+        isDraggingRef.current = true;
+        // typeプロパティを正しく渡す
+        return {
+          id,
+          name,
+          cost,
+          isFlipped,
+          x,
+          y,
+          type: type || "field", // typeが指定されていない場合は"field"をデフォルトとする
+          rotation,
+        };
+      },
       end: (item, monitor) => {
         const delta = monitor.getDifferenceFromInitialOffset();
         const didDrop = monitor.didDrop();
@@ -53,14 +71,22 @@ const DraggableCard = ({
           const newY = Math.round(initialPos.y + delta.y);
 
           if (didDrop && onMove) {
+            console.log(
+              `[DEBUG] Card dragged to new position: {x: ${newX}, y: ${newY}}`
+            );
             onMove({
               id,
               x: newX,
               y: newY,
-              rotation, // 回転情報も渡す
+              rotation,
             });
           }
         }
+
+        // ドラッグ終了後、少し待ってからフラグをリセット
+        setTimeout(() => {
+          isDraggingRef.current = false;
+        }, 300);
       },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
@@ -69,7 +95,7 @@ const DraggableCard = ({
     [id, name, cost, isFlipped, initialPos.x, initialPos.y, rotation, onMove]
   );
 
-  // 回転イベントハンドラ
+  // 回転イベントハンドラ（右クリック）
   const handleRotate = (e) => {
     // 右クリックメニューを防止
     e.preventDefault();
@@ -77,12 +103,50 @@ const DraggableCard = ({
     // 回転処理
     if (onMove) {
       const newRotation = (rotation + 90) % 360;
+      console.log(
+        `[DEBUG] DraggableCard requesting rotation via right-click: ${rotation} -> ${newRotation}`
+      );
       onMove({
         id,
         x,
         y,
         rotation: newRotation,
       });
+    }
+  };
+
+  // 通常クリック (左クリック) 処理
+  const handleCardClick = () => {
+    // ドラッグ中または直後ならクリックイベント発火しない
+    if (
+      isDraggingRef.current ||
+      isDragging ||
+      Date.now() - dragStartTimeRef.current < 200
+    ) {
+      console.log("[DEBUG] Ignoring click because card was recently dragged");
+      return;
+    }
+
+    console.log("[DEBUG] Card clicked (left click) in DraggableCard:", id);
+
+    // 回転処理
+    if (onMove) {
+      const newRotation = (rotation + 90) % 360;
+      console.log(
+        `[DEBUG] DraggableCard requesting rotation via click: ${rotation} -> ${newRotation}`
+      );
+      onMove({
+        id,
+        x,
+        y,
+        rotation: newRotation,
+      });
+    }
+
+    // 親から渡されたクリックハンドラも呼び出す
+    if (onClick) {
+      console.log("[DEBUG] Calling parent onClick with id:", id);
+      onClick(id);
     }
   };
 
@@ -94,7 +158,7 @@ const DraggableCard = ({
     opacity: isDragging ? 0.5 : 1,
     cursor: "move",
     zIndex: isDragging ? 1000 : 1,
-    transition: "transform 0.2s", // スムーズに回転
+    transition: isDragging ? "none" : "transform 0.2s", // ドラッグ中はアニメーションを無効化
   };
 
   return (
@@ -109,7 +173,7 @@ const DraggableCard = ({
         cost={cost}
         isFlipped={isFlipped}
         type={type}
-        onClick={onClick}
+        onClick={handleCardClick} // 左クリックはCardコンポーネントのクリックイベントで処理
         draggable={false}
       />
     </div>

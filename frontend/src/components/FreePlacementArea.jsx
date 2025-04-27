@@ -12,12 +12,11 @@ const FreePlacementArea = ({
   const areaRef = useRef(null);
 
   // ドロップ処理
-  const [{ isOver, canDrop }, dropRef] = useDrop(
+  const [, dropRef] = useDrop(
     () => ({
-      // isOver, canDrop を追加
       accept: "CARD",
       drop: (item, monitor) => {
-        console.log("[FreePlacementArea] Drop detected! Item:", item); // ログは残す
+        console.log("[FreePlacementArea] Drop detected! Item:", item);
 
         const offset = monitor.getClientOffset();
         const areaRect = areaRef.current?.getBoundingClientRect();
@@ -29,6 +28,11 @@ const FreePlacementArea = ({
 
         const x = areaRect ? offset.x - areaRect.left : offset.x;
         const y = areaRect ? offset.y - areaRect.top : offset.y;
+        console.log("[FreePlacementArea] Calculated drop coordinates:", {
+          x,
+          y,
+        });
+
         if (item.type === "hand") {
           console.log("[FreePlacementArea] Calling onDropCard (for hand drop)");
           onDropCard({ item, x, y }); // PlayDeck は {item, x, y} を受け取る
@@ -53,7 +57,7 @@ const FreePlacementArea = ({
       }),
     }),
     [onDropCard, onMoveCard]
-  ); // 依存配列
+  );
 
   const combinedRef = (el) => {
     areaRef.current = el;
@@ -70,11 +74,18 @@ const FreePlacementArea = ({
           name={card.name}
           cost={card.cost}
           isFlipped={card.isFlipped}
+          type={card.type || "field"}
           x={card.x}
           y={card.y}
-          // ▼▼▼ prop名を onMove に、onClick の引数を card.id に修正 ▼▼▼
+          rotation={card.rotation || 0}
           onMove={onMoveCard}
-          onClick={() => onClickCard && onClickCard(card.id)}
+          onClick={() => {
+            console.log(
+              "[DEBUG] DraggableCard clicked, calling onClickCard with id:",
+              card.id
+            );
+            if (onClickCard) onClickCard(card.id);
+          }}
         />
       ))}
     </div>
