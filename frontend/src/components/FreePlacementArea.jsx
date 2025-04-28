@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useDrop } from "react-dnd";
 import DraggableCard from "./DraggableCard";
 
@@ -9,6 +9,7 @@ import DraggableCard from "./DraggableCard";
  * @param {function} props.onDropCard カードがドロップされた時のコールバック
  * @param {function} props.onMoveCard フィールドカードが移動した時のコールバック
  * @param {function} props.onClickCard カードがクリックされた時のコールバック
+ * @param {function} props.onInit 初期化時のコールバック（サイズ情報を渡す）
  * @param {string} props.className 追加のCSSクラス
  */
 const FreePlacementArea = ({
@@ -16,9 +17,17 @@ const FreePlacementArea = ({
   onDropCard,
   onMoveCard,
   onClickCard,
+  onInit,
   className = "",
 }) => {
   const areaRef = useRef(null);
+
+  useEffect(() => {
+    if (areaRef.current && onInit) {
+      const { offsetWidth, offsetHeight } = areaRef.current;
+      onInit({ width: offsetWidth, height: offsetHeight });
+    }
+  }, [onInit]);
 
   // ドロップ処理
   const [, dropRef] = useDrop(

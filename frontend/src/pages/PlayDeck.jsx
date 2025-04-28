@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useReducer, useRef } from "react";
+import { useEffect, useCallback, useReducer, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -6,6 +6,12 @@ import axios from "axios";
 import Card from "../components/Card";
 import FreePlacementArea from "../components/FreePlacementArea";
 import { createCard, getCardsByZone } from "../utils/cardUtils";
+
+const CARD_WIDTH = 48;
+const CARD_GAP = 12;
+const TOTAL_WIDTH = 5 * CARD_WIDTH + 4 * CARD_GAP; // 5枚 + 4つの間隔
+const FIELD_WIDTH = 800; // 仮に 800px
+const START_X = (FIELD_WIDTH - TOTAL_WIDTH) / 2;
 
 // アクションタイプを定義
 const ACTIONS = {
@@ -143,6 +149,7 @@ function PlayDeck() {
   const { deckId } = useParams();
   const [state, dispatch] = useReducer(reducer, initialState);
   const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
+  const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 }); // 初期値を0に変更
 
   // 1. デッキデータ取得 Effect
   useEffect(() => {
@@ -173,14 +180,21 @@ function PlayDeck() {
       });
   }, [deckId]); // deckId が変わった時だけ再実行
 
+  // フィールドサイズの初期化ハンドラ
+  const handleFieldInit = useCallback((size) => {
+    console.log("フィールドサイズ取得:", size);
+    setFieldSize(size);
+  }, []);
+
   // 2. 初期設定 Effect (シャッフル、手札配布)
   useEffect(() => {
-    // 初期化フラグが false で、deckデータとcards配列が存在する場合のみ実行
+    // 初期化フラグが false で、deckデータとcards配列が存在し、フィールドサイズが取得されている場合のみ実行
     if (
       !initialized.current &&
       state.deckInfo &&
       state.deckInfo.cards &&
-      state.deckInfo.cards.length > 0
+      state.deckInfo.cards.length > 0 &&
+      fieldSize.width > 0 // フィールドサイズが取得されていることを確認
     ) {
       // --- このブロックは初回のみ実行 ---
       initialized.current = true; // フラグを立てて再実行を防ぐ
@@ -193,6 +207,17 @@ function PlayDeck() {
         [cardNames[i], cardNames[j]] = [cardNames[j], cardNames[i]];
       }
 
+      // シールドカードを作成 (cards[0]〜cards[4])
+      const initialShield = cardNames.slice(0, 5).map((name, i) =>
+        createCard({
+          name,
+          zone: "field",
+          isFlipped: true,
+          x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60, // 5枚のカードを中央に配置
+          y: fieldSize.height / 2 + 80,
+          rotation: 0,
+        })
+      );
       // 手札カードを作成 (cards[5]〜cards[9])
       const initialHand = cardNames.slice(5, 10).map((name) =>
         createCard({
@@ -212,11 +237,11 @@ function PlayDeck() {
       );
 
       // 一括でカードを追加
-      [...initialHand, ...deckCards].forEach((card) => {
+      [...initialShield, ...initialHand, ...deckCards].forEach((card) => {
         dispatch({ type: ACTIONS.ADD_CARD, payload: card });
       });
     }
-  }, [state.deckInfo]); // deckInfo が変更されたら実行
+  }, [state.deckInfo, fieldSize]); // fieldSizeを依存配列に追加
 
   // --- コールバック関数 ---
 
@@ -354,14 +379,6 @@ function PlayDeck() {
       </div>
     );
 
-  // ダミーのシールドカード（表示用、State管理外）
-  const shieldCards = [...Array(5)].map((_, i) => ({
-    id: `shield-${i}`,
-    name: "シールド",
-    isFlipped: true,
-    type: "shield",
-  }));
-
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-screen bg-gray-100">
@@ -379,25 +396,13 @@ function PlayDeck() {
               onDropCard={handleDropToField}
               onMoveCard={handleMoveFieldCard}
               onClickCard={handleRotateFieldCard}
+              onInit={handleFieldInit}
               className="w-full h-full bg-green-100 rounded shadow-inner border border-green-300 overflow-auto"
             />
           </div>
 
           {/* アクションエリア・コントロールパネル */}
           <div className="flex flex-col md:flex-row bg-gray-200 rounded shadow p-1 md:p-2 gap-1 md:gap-2">
-            {/* シールドエリア */}
-            <div className="flex flex-wrap justify-center items-center gap-1 p-1 bg-purple-100 rounded border border-purple-300 md:flex-1">
-              {shieldCards.map((card) => (
-                <Card
-                  key={card.id}
-                  id={card.id}
-                  name={card.name}
-                  isFlipped={card.isFlipped}
-                  type="shield"
-                />
-              ))}
-            </div>
-
             {/* 手札エリア */}
             <div className="flex flex-wrap justify-center items-center gap-1 p-1 bg-blue-100 rounded border border-blue-300 md:flex-1">
               {getCardsByZone(state.cards, "hand").map((card) => (
