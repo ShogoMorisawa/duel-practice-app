@@ -16,6 +16,7 @@ import Card from "./Card";
  * @param {number} props.rotation 回転角度
  * @param {function} props.onMove 移動時のコールバック
  * @param {function} props.onClick クリック時のコールバック
+ * @param {string} props.imageUrl カードの画像URL
  */
 const DraggableCard = ({
   id,
@@ -29,7 +30,21 @@ const DraggableCard = ({
   rotation = 0,
   onMove,
   onClick,
+  imageUrl,
 }) => {
+  console.log("[DraggableCard] Props:", {
+    id,
+    name,
+    cost,
+    isFlipped,
+    type,
+    zone,
+    x,
+    y,
+    rotation,
+    imageUrl,
+  });
+
   // zoneがあればそれを使い、なければtypeを使う移行期コード
   const actualZone = zone || type;
 
@@ -194,6 +209,7 @@ const DraggableCard = ({
         zone={actualZone}
         onClick={handleCardClick} // 左クリックはCardコンポーネントのクリックイベントで処理
         draggable={false}
+        imageUrl={imageUrl}
       />
     </div>
   );

@@ -22,8 +22,20 @@ export const createCard = ({
   x = 0,
   y = 0,
   rotation = 0,
+  imageUrl = null,
 }) => {
-  return {
+  console.log("[createCard] パラメータ:", {
+    name,
+    cost,
+    isFlipped,
+    zone,
+    x,
+    y,
+    rotation,
+    imageUrl,
+  });
+
+  const card = {
     id: `${zone}-${name}-${Math.random().toString(36).substr(2, 9)}`,
     name,
     cost,
@@ -32,7 +44,11 @@ export const createCard = ({
     // フィールド上のカードのみ座標を持つ
     ...(zone === "field" ? { x, y } : {}),
     zone,
+    imageUrl,
   };
+
+  console.log("[createCard] 作成されたカード:", card);
+  return card;
 };
 
 /**

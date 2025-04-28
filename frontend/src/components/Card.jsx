@@ -11,6 +11,7 @@ import { useDrag } from "react-dnd";
  * @param {function} props.onClick - クリック時のハンドラ
  * @param {string} props.type - カードの種類（手札、シールド、山札など）[後方互換用]
  * @param {string} props.zone - カードのゾーン（hand, deck, field など）
+ * @param {string} props.imageUrl - カード画像のURL
  */
 const Card = ({
   id,
@@ -20,7 +21,13 @@ const Card = ({
   onClick,
   type = "default",
   zone,
+  imageUrl,
 }) => {
+  // デバッグログを追加
+  console.log(
+    `[Card Debug] id: ${id}, isFlipped: ${isFlipped}, imageUrl: ${imageUrl}`
+  );
+
   // zoneがあればそれを使い、なければtypeを使う移行期コード
   const actualZone = zone || type;
 
@@ -40,13 +47,13 @@ const Card = ({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-    // シールドと山札はドラッグ不可
-    canDrag: () => actualZone !== "shield" && actualZone !== "deck",
+    // 山札はドラッグ不可
+    canDrag: () => actualZone !== "deck",
   }));
 
   // カードのベーススタイル
   const baseClasses =
-    "border shadow rounded p-1 w-12 h-16 flex flex-col justify-between text-xs";
+    "border shadow rounded w-12 h-16 flex flex-col justify-between text-xs";
 
   // ドラッグ中のスタイル
   const dragClasses = isDragging ? "opacity-50" : "opacity-100";
@@ -57,8 +64,7 @@ const Card = ({
     : "";
 
   // ドラッグ可能なカードのスタイル
-  const dragableClasses =
-    actualZone !== "shield" && actualZone !== "deck" ? "cursor-move" : "";
+  const dragableClasses = actualZone !== "deck" ? "cursor-move" : "";
 
   // 裏面/表面スタイル
   const flipClasses = isFlipped ? "bg-gray-900" : cardZoneClasses[actualZone];
@@ -68,16 +74,32 @@ const Card = ({
       ref={dragRef}
       className={`${baseClasses} ${dragClasses} ${clickClasses} ${flipClasses} ${dragableClasses}`}
       onClick={onClick}
-      draggable={actualZone !== "shield" && actualZone !== "deck"}
+      draggable={actualZone !== "deck"}
     >
-      {!isFlipped && (
-        <>
-          <div className="font-bold text-center truncate text-[8px]">
-            {name}
-          </div>
-          {cost && <div className="text-[8px] text-center">{cost}</div>}
-        </>
-      )}
+      {!isFlipped ? (
+        imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={name}
+            className="w-full h-full object-cover rounded"
+            style={{ padding: 0 }}
+            onError={(e) => {
+              console.error(
+                `[Card Image Error] Failed to load image: ${imageUrl}`
+              );
+              e.target.onerror = null;
+              e.target.src = "/placeholder.jpg"; // フォールバック用画像
+            }}
+          />
+        ) : (
+          <>
+            <div className="font-bold text-center truncate text-[8px]">
+              {name}
+            </div>
+            {cost && <div className="text-[8px] text-center">{cost}</div>}
+          </>
+        )
+      ) : null}
     </div>
   );
 };

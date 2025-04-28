@@ -106,6 +106,7 @@ const FreePlacementArea = ({
             );
             if (onClickCard) onClickCard(card.id);
           }}
+          imageUrl={card.imageUrl}
         />
       ))}
     </div>

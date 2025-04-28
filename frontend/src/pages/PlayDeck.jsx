@@ -34,8 +34,15 @@ const initialState = {
   loading: true, // ローディング状態
 };
 
+// 画像URL生成関数
+const getImageUrl = () =>
+  "https://dm.takaratomy.co.jp/wp-content/card/cardimage/dm24ex2-Cho001.jpg";
+
 // リデューサー関数を定義
 function reducer(state, action) {
+  console.log("[Reducer] Action:", action.type, "Payload:", action.payload);
+  console.log("[Reducer] Current state:", state);
+
   switch (action.type) {
     case ACTIONS.SET_LOADING:
       return { ...state, loading: action.payload };
@@ -44,64 +51,60 @@ function reducer(state, action) {
       return { ...state, deckInfo: action.payload };
 
     case ACTIONS.ADD_CARD:
+      console.log("[Reducer] Adding card:", action.payload);
       return { ...state, cards: [...state.cards, action.payload] };
 
     case ACTIONS.MOVE_CARD_ZONE: {
       const { id, newZone, newProps = {} } = action.payload;
-      return {
-        ...state,
-        cards: state.cards.map((card) =>
-          card.id === id
-            ? {
-                ...card,
-                zone: newZone,
-                // フィールドゾーンに移動する場合、座標情報を追加
-                ...(newZone === "field" && !card.x ? { x: 0, y: 0 } : {}),
-                // フィールドゾーン以外に移動する場合、座標情報を削除
-                ...(newZone !== "field" ? { x: undefined, y: undefined } : {}),
-                ...newProps,
-              }
-            : card
-        ),
-      };
+      const newCards = state.cards.map((card) =>
+        card.id === id
+          ? {
+              ...card,
+              zone: newZone,
+              // フィールドゾーンに移動する場合、座標情報を追加
+              ...(newZone === "field" && !card.x ? { x: 0, y: 0 } : {}),
+              // フィールドゾーン以外に移動する場合、座標情報を削除
+              ...(newZone !== "field" ? { x: undefined, y: undefined } : {}),
+              ...newProps,
+            }
+          : card
+      );
+      console.log("[Reducer] Moving card to zone:", id, newZone, newCards);
+      return { ...state, cards: newCards };
     }
 
     case ACTIONS.UPDATE_POSITION: {
       const { id, x, y } = action.payload;
-      return {
-        ...state,
-        cards: state.cards.map((card) =>
-          card.id === id ? { ...card, x, y } : card
-        ),
-      };
+      const newCards = state.cards.map((card) =>
+        card.id === id ? { ...card, x, y } : card
+      );
+      console.log("[Reducer] Updating position:", id, x, y, newCards);
+      return { ...state, cards: newCards };
     }
 
     case ACTIONS.ROTATE_CARD: {
       const { id, rotation } = action.payload;
-      return {
-        ...state,
-        cards: state.cards.map((card) =>
-          card.id === id ? { ...card, rotation } : card
-        ),
-      };
+      const newCards = state.cards.map((card) =>
+        card.id === id ? { ...card, rotation } : card
+      );
+      console.log("[Reducer] Rotating card:", id, rotation, newCards);
+      return { ...state, cards: newCards };
     }
 
     case ACTIONS.FLIP_CARD: {
       const { id } = action.payload;
-      return {
-        ...state,
-        cards: state.cards.map((card) =>
-          card.id === id ? { ...card, isFlipped: !card.isFlipped } : card
-        ),
-      };
+      const newCards = state.cards.map((card) =>
+        card.id === id ? { ...card, isFlipped: !card.isFlipped } : card
+      );
+      console.log("[Reducer] Flipping card:", id, newCards);
+      return { ...state, cards: newCards };
     }
 
     case ACTIONS.REMOVE_CARD: {
       const { id } = action.payload;
-      return {
-        ...state,
-        cards: state.cards.filter((card) => card.id !== id),
-      };
+      const newCards = state.cards.filter((card) => card.id !== id);
+      console.log("[Reducer] Removing card:", id, newCards);
+      return { ...state, cards: newCards };
     }
 
     case ACTIONS.DRAW_CARD: {
@@ -110,15 +113,13 @@ function reducer(state, action) {
       if (deckCards.length === 0) return state; // 山札が空なら何もしない
 
       const cardToDraw = deckCards[deckCards.length - 1];
-
-      return {
-        ...state,
-        cards: state.cards.map((card) =>
-          card.id === cardToDraw.id
-            ? { ...card, zone: "hand", isFlipped: false }
-            : card
-        ),
-      };
+      const newCards = state.cards.map((card) =>
+        card.id === cardToDraw.id
+          ? { ...card, zone: "hand", isFlipped: false }
+          : card
+      );
+      console.log("[Reducer] Drawing card:", cardToDraw.id, newCards);
+      return { ...state, cards: newCards };
     }
 
     case ACTIONS.SHUFFLE_DECK: {
@@ -133,10 +134,9 @@ function reducer(state, action) {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      return {
-        ...state,
-        cards: [...otherCards, ...shuffled],
-      };
+      const newCards = [...otherCards, ...shuffled];
+      console.log("[Reducer] Shuffling deck:", newCards);
+      return { ...state, cards: newCards };
     }
 
     default:
@@ -196,6 +196,10 @@ function PlayDeck() {
       state.deckInfo.cards.length > 0 &&
       fieldSize.width > 0 // フィールドサイズが取得されていることを確認
     ) {
+      console.log("[PlayDeck] 初期化開始");
+      console.log("[PlayDeck] デッキ情報:", state.deckInfo);
+      console.log("[PlayDeck] フィールドサイズ:", fieldSize);
+
       // --- このブロックは初回のみ実行 ---
       initialized.current = true; // フラグを立てて再実行を防ぐ
 
@@ -208,36 +212,47 @@ function PlayDeck() {
       }
 
       // シールドカードを作成 (cards[0]〜cards[4])
-      const initialShield = cardNames.slice(0, 5).map((name, i) =>
-        createCard({
+      const initialShield = cardNames.slice(0, 5).map((name, i) => {
+        const card = createCard({
           name,
           zone: "field",
           isFlipped: true,
-          x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60, // 5枚のカードを中央に配置
+          x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60,
           y: fieldSize.height / 2 + 80,
           rotation: 0,
-        })
-      );
+          imageUrl: getImageUrl(),
+        });
+        console.log("[PlayDeck] シールドカード作成:", card);
+        return card;
+      });
+
       // 手札カードを作成 (cards[5]〜cards[9])
-      const initialHand = cardNames.slice(5, 10).map((name) =>
-        createCard({
+      const initialHand = cardNames.slice(5, 10).map((name) => {
+        const card = createCard({
           name,
           zone: "hand",
           isFlipped: false,
-        })
-      );
+          imageUrl: getImageUrl(),
+        });
+        console.log("[PlayDeck] 手札カード作成:", card);
+        return card;
+      });
 
       // 山札カードを作成 (cards[10]〜)
-      const deckCards = cardNames.slice(10).map((name) =>
-        createCard({
+      const deckCards = cardNames.slice(10).map((name) => {
+        const card = createCard({
           name,
           zone: "deck",
           isFlipped: true,
-        })
-      );
+          imageUrl: getImageUrl(),
+        });
+        console.log("[PlayDeck] 山札カード作成:", card);
+        return card;
+      });
 
       // 一括でカードを追加
       [...initialShield, ...initialHand, ...deckCards].forEach((card) => {
+        console.log("[PlayDeck] カード追加:", card);
         dispatch({ type: ACTIONS.ADD_CARD, payload: card });
       });
     }
@@ -343,6 +358,7 @@ function PlayDeck() {
           x: Math.round(x),
           y: Math.round(y),
           rotation: 0,
+          imageUrl: getImageUrl(),
         });
 
         // 手札のカードを非表示にする
@@ -414,6 +430,7 @@ function PlayDeck() {
                   isFlipped={card.isFlipped}
                   zone="hand"
                   onClick={() => handleFlipHandCard(card.id)}
+                  imageUrl={card.imageUrl}
                 />
               ))}
             </div>
