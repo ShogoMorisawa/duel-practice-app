@@ -220,7 +220,9 @@ function PlayDeck() {
           x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60,
           y: fieldSize.height / 2 + 80,
           rotation: 0,
-          imageUrl: getImageUrl(),
+          imageUrl: name.startsWith("http")
+            ? name
+            : `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${name}.jpg`,
         });
         console.log("[PlayDeck] シールドカード作成:", card);
         return card;
@@ -232,7 +234,9 @@ function PlayDeck() {
           name,
           zone: "hand",
           isFlipped: false,
-          imageUrl: getImageUrl(),
+          imageUrl: name.startsWith("http")
+            ? name
+            : `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${name}.jpg`,
         });
         console.log("[PlayDeck] 手札カード作成:", card);
         return card;
@@ -244,7 +248,9 @@ function PlayDeck() {
           name,
           zone: "deck",
           isFlipped: true,
-          imageUrl: getImageUrl(),
+          imageUrl: name.startsWith("http")
+            ? name
+            : `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${name}.jpg`,
         });
         console.log("[PlayDeck] 山札カード作成:", card);
         return card;
@@ -358,7 +364,7 @@ function PlayDeck() {
           x: Math.round(x),
           y: Math.round(y),
           rotation: 0,
-          imageUrl: getImageUrl(),
+          imageUrl: item.imageUrl || item.name, // imageUrlがなければnameを使用
         });
 
         // 手札のカードを非表示にする

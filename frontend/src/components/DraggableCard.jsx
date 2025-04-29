@@ -83,6 +83,7 @@ const DraggableCard = ({
           type: actualZone, // 後方互換性のため
           zone: actualZone, // 新しいプロパティ
           rotation,
+          imageUrl, // imageUrlを追加
         };
       },
       end: (item, monitor) => {
