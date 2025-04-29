@@ -1,33 +1,71 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 
-function DeckDetail() {
+const DeckDetail = () => {
   const { id } = useParams();
   const [deck, setDeck] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios
-      .get(`http://localhost:3000/api/decks/${id}`)
-      .then((res) => {
-        setDeck(res.data);
-        console.log(res.data);
-      })
-      .catch((err) => console.error("デッキ取得に失敗！", err));
+    const fetchDeck = async () => {
+      try {
+        const response = await axios.get(
+          `http://localhost:3000/api/decks/${id}`
+        );
+        setDeck(response.data);
+        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        setError("デッキの取得に失敗しました");
+        setLoading(false);
+      }
+    };
+
+    fetchDeck();
   }, [id]);
 
-  if (!deck) return <div>デッキが見つかりません</div>;
+  if (loading)
+    return <div className="p-6 text-center text-gray-600">読み込み中...</div>;
+  if (error) return <div className="p-6 text-center text-red-500">{error}</div>;
+  if (!deck)
+    return (
+      <div className="p-6 text-center text-gray-600">
+        デッキが見つかりません
+      </div>
+    );
 
   return (
-    <div>
-      <h2>{deck.name}</h2>
-      <ul>
-        {deck.cards.map((card, index) => (
-          <li key={index}>{card}</li>
+    <div className="max-w-5xl mx-auto px-4 py-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b-2 border-blue-500">
+        {deck.name}
+      </h2>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+        {deck.cards.map((card, i) => (
+          <div
+            key={i}
+            className="w-full h-32 border rounded-md overflow-hidden flex items-center justify-center bg-gray-100"
+          >
+            {card.startsWith("http") || card.startsWith("data:image") ? (
+              <img
+                src={card}
+                alt={`カード${i + 1}`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.style.display = "none";
+                }}
+              />
+            ) : (
+              <span className="text-xs text-gray-500">{card}</span>
+            )}
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
-}
+};
 
 export default DeckDetail;
