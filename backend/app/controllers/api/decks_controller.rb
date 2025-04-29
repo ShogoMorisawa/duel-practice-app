@@ -31,7 +31,10 @@ module Api
     private
 
     def deck_params
-      params.require(:deck).permit(:name, cards: [])
+      params.require(:deck).permit(
+        :name,
+        cards: [:name, :imageUrl]
+      )
     end
   end
 end

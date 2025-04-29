@@ -48,10 +48,10 @@ const DeckDetail = () => {
             key={i}
             className="w-full h-32 border rounded-md overflow-hidden flex items-center justify-center bg-gray-100"
           >
-            {card.startsWith("http") || card.startsWith("data:image") ? (
+            {card.imageUrl ? (
               <img
-                src={card}
-                alt={`カード${i + 1}`}
+                src={card.imageUrl}
+                alt={card.name || `カード${i + 1}`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.target.onerror = null;
@@ -59,7 +59,9 @@ const DeckDetail = () => {
                 }}
               />
             ) : (
-              <span className="text-xs text-gray-500">{card}</span>
+              <span className="text-xs text-gray-500">
+                {card.name || `カード${i + 1}`}
+              </span>
             )}
           </div>
         ))}

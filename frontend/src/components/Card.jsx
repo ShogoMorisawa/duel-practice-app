@@ -43,7 +43,15 @@ const Card = ({
   // ドラッグ機能の設定
   const [{ isDragging }, dragRef] = useDrag(() => ({
     type: "CARD",
-    item: { id, name, cost, isFlipped, type: actualZone, zone: actualZone },
+    item: {
+      id,
+      name,
+      cost,
+      isFlipped,
+      type: actualZone,
+      zone: actualZone,
+      imageUrl,
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -88,7 +96,7 @@ const Card = ({
                 `[Card Image Error] Failed to load image: ${imageUrl}`
               );
               e.target.onerror = null;
-              e.target.src = "/placeholder.jpg"; // フォールバック用画像
+              e.target.src = "/images/card-back.png"; // 画像が読み込めない場合はNoImage画像を表示
             }}
           />
         ) : (

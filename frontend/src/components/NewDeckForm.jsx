@@ -2,15 +2,13 @@ import React, { useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-// 初期状態
 const initialState = {
   name: "",
-  cards: Array(40).fill(null), // カード画像のURLまたはBase64データ
+  cards: Array(40).fill({ name: "", imageUrl: null }),
   isSubmitting: false,
   error: null,
 };
 
-// リデューサー関数
 function deckFormReducer(state, action) {
   switch (action.type) {
     case "SET_NAME":
@@ -40,8 +38,11 @@ const NewDeckForm = ({ onDeckCreated }) => {
     const url = e.dataTransfer.getData("text/uri-list");
 
     if (url && url.startsWith("https://")) {
-      // 外部URLの場合（仮対応）
-      dispatch({ type: "SET_CARD", index, payload: url });
+      dispatch({
+        type: "SET_CARD",
+        index,
+        payload: { name: "", imageUrl: url },
+      });
       return;
     }
 
@@ -49,7 +50,11 @@ const NewDeckForm = ({ onDeckCreated }) => {
     if (file && file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = () => {
-        dispatch({ type: "SET_CARD", index, payload: reader.result });
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: { name: "", imageUrl: reader.result },
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -62,11 +67,11 @@ const NewDeckForm = ({ onDeckCreated }) => {
     try {
       await axios.post("http://localhost:3000/api/decks", {
         name: state.name,
-        cards: state.cards.filter((card) => card !== null),
+        cards: state.cards,
       });
       dispatch({ type: "SUBMIT_SUCCESS" });
       if (onDeckCreated) onDeckCreated();
-      navigate("/"); // 成功したらトップページへ
+      navigate("/");
     } catch (error) {
       console.error("Error creating deck:", error);
       dispatch({ type: "SUBMIT_ERROR", payload: error.message });
@@ -88,10 +93,10 @@ const NewDeckForm = ({ onDeckCreated }) => {
               onDrop={(e) => handleCardDrop(e, index)}
               className="w-full h-32 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center bg-gray-50 relative"
             >
-              {card ? (
+              {card.imageUrl ? (
                 <img
-                  src={card}
-                  alt={`カード${index + 1}`}
+                  src={card.imageUrl}
+                  alt={card.name || `カード${index + 1}`}
                   className="w-full h-full object-cover rounded-md"
                 />
               ) : (
@@ -139,10 +144,8 @@ const NewDeckForm = ({ onDeckCreated }) => {
             カード登録（40枚）
           </h3>
 
-          {/* カード入力エリア */}
           {renderCardInputs()}
 
-          {/* ページネーション */}
           <div className="flex justify-between items-center mt-6">
             <button
               type="button"

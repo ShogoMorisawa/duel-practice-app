@@ -5,6 +5,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import axios from "axios";
 import Card from "../components/Card";
 import FreePlacementArea from "../components/FreePlacementArea";
+import HandArea from "../components/HandArea";
 import { createCard, getCardsByZone } from "../utils/cardUtils";
 
 const CARD_WIDTH = 48;
@@ -33,10 +34,6 @@ const initialState = {
   cards: [], // すべてのカード（zone プロパティで区分）
   loading: true, // ローディング状態
 };
-
-// 画像URL生成関数
-const getImageUrl = () =>
-  "https://dm.takaratomy.co.jp/wp-content/card/cardimage/dm24ex2-Cho001.jpg";
 
 // リデューサー関数を定義
 function reducer(state, action) {
@@ -203,58 +200,46 @@ function PlayDeck() {
       // --- このブロックは初回のみ実行 ---
       initialized.current = true; // フラグを立てて再実行を防ぐ
 
-      const cardNames = [...state.deckInfo.cards]; // APIからのカード名配列
+      const cardDataList = [...state.deckInfo.cards];
 
-      // カード名をシャッフル
-      for (let i = cardNames.length - 1; i > 0; i--) {
+      // シャッフル
+      for (let i = cardDataList.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [cardNames[i], cardNames[j]] = [cardNames[j], cardNames[i]];
+        [cardDataList[i], cardDataList[j]] = [cardDataList[j], cardDataList[i]];
       }
 
-      // シールドカードを作成 (cards[0]〜cards[4])
-      const initialShield = cardNames.slice(0, 5).map((name, i) => {
-        const card = createCard({
-          name,
+      // シールドカード
+      const initialShield = cardDataList.slice(0, 5).map((cardData, i) =>
+        createCard({
+          name: cardData.name || "",
+          imageUrl: cardData.imageUrl || null,
           zone: "field",
           isFlipped: true,
           x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60,
           y: fieldSize.height / 2 + 80,
           rotation: 0,
-          imageUrl: name.startsWith("http")
-            ? name
-            : `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${name}.jpg`,
-        });
-        console.log("[PlayDeck] シールドカード作成:", card);
-        return card;
-      });
+        })
+      );
 
-      // 手札カードを作成 (cards[5]〜cards[9])
-      const initialHand = cardNames.slice(5, 10).map((name) => {
-        const card = createCard({
-          name,
+      // 手札カード
+      const initialHand = cardDataList.slice(5, 10).map((cardData) =>
+        createCard({
+          name: cardData.name || "",
+          imageUrl: cardData.imageUrl || null,
           zone: "hand",
           isFlipped: false,
-          imageUrl: name.startsWith("http")
-            ? name
-            : `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${name}.jpg`,
-        });
-        console.log("[PlayDeck] 手札カード作成:", card);
-        return card;
-      });
+        })
+      );
 
-      // 山札カードを作成 (cards[10]〜)
-      const deckCards = cardNames.slice(10).map((name) => {
-        const card = createCard({
-          name,
+      // 山札カード
+      const deckCards = cardDataList.slice(10).map((cardData) =>
+        createCard({
+          name: cardData.name || "",
+          imageUrl: cardData.imageUrl || null,
           zone: "deck",
           isFlipped: true,
-          imageUrl: name.startsWith("http")
-            ? name
-            : `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${name}.jpg`,
-        });
-        console.log("[PlayDeck] 山札カード作成:", card);
-        return card;
-      });
+        })
+      );
 
       // 一括でカードを追加
       [...initialShield, ...initialHand, ...deckCards].forEach((card) => {
@@ -341,6 +326,13 @@ function PlayDeck() {
   const handleDropToField = useCallback(
     (dropInfo) => {
       console.log("[DEBUG] handleDropToField called with:", dropInfo);
+      console.log("[DEBUG] Item details:", {
+        id: dropInfo.item?.id,
+        name: dropInfo.item?.name,
+        imageUrl: dropInfo.item?.imageUrl,
+        type: dropInfo.item?.type,
+        zone: dropInfo.item?.zone,
+      });
 
       // dropInfoは { item, x, y } 形式で渡される
       const { item, x, y } = dropInfo;
@@ -356,16 +348,26 @@ function PlayDeck() {
 
       if (isHandCard) {
         // 手札から場へ - 新しいフィールドカードを作成
-        const fieldCard = createCard({
+        console.log("[DEBUG] Creating field card from hand card:", {
           name: item.name,
-          cost: item.cost,
+          imageUrl: item.imageUrl,
           isFlipped: item.isFlipped,
-          zone: "field",
           x: Math.round(x),
           y: Math.round(y),
-          rotation: 0,
-          imageUrl: item.imageUrl || item.name, // imageUrlがなければnameを使用
+          rotation: item.rotation,
         });
+
+        const fieldCard = createCard({
+          name: item.name || "", // nameがなければ空文字
+          imageUrl: item.imageUrl || null, // 🔥 元のimageUrlを確実に引き継ぐ
+          zone: "field",
+          isFlipped: item.isFlipped || false,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: item.rotation || 0,
+        });
+
+        console.log("[DEBUG] Created field card:", fieldCard);
 
         // 手札のカードを非表示にする
         dispatch({
@@ -400,6 +402,8 @@ function PlayDeck() {
         デッキ情報の読み込みに失敗しました。
       </div>
     );
+
+  const fieldCards = getCardsByZone(state.cards, "field");
 
   return (
     <DndProvider backend={HTML5Backend}>

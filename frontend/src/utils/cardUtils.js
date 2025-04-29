@@ -5,6 +5,7 @@
 /**
  * カードオブジェクト生成関数
  * @param {Object} params カードパラメータ
+ * @param {string} params.id カードID（省略可）
  * @param {string} params.name カード名
  * @param {string|null} params.cost カードコスト
  * @param {boolean} params.isFlipped 裏向きかどうか
@@ -12,9 +13,11 @@
  * @param {number} params.x X座標 (fieldゾーンの場合のみ使用)
  * @param {number} params.y Y座標 (fieldゾーンの場合のみ使用)
  * @param {number} params.rotation 回転角度
+ * @param {string|null} params.imageUrl カード画像のURL
  * @returns {Object} カードオブジェクト
  */
 export const createCard = ({
+  id,
   name,
   cost = null,
   isFlipped = true,
@@ -25,6 +28,7 @@ export const createCard = ({
   imageUrl = null,
 }) => {
   console.log("[createCard] パラメータ:", {
+    id,
     name,
     cost,
     isFlipped,
@@ -36,8 +40,9 @@ export const createCard = ({
   });
 
   const card = {
-    id: `${zone}-${name}-${Math.random().toString(36).substr(2, 9)}`,
-    name,
+    id:
+      id || `${zone}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    name: name || "",
     cost,
     isFlipped,
     rotation,

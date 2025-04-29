@@ -126,6 +126,7 @@ const DraggableCard = ({
       rotation,
       onMove,
       actualZone,
+      imageUrl, // imageUrlを依存配列に追加
     ]
   );
 
