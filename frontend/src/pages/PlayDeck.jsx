@@ -430,7 +430,7 @@ function PlayDeck() {
           {/* アクションエリア・コントロールパネル */}
           <div className="flex flex-col md:flex-row bg-gray-200 rounded shadow p-1 md:p-2 gap-1 md:gap-2">
             {/* 手札エリア */}
-            <div className="flex flex-wrap justify-center items-center gap-1 p-1 bg-blue-100 rounded border border-blue-300 md:flex-1">
+            {/* <div className="flex flex-wrap justify-center items-center gap-1 p-1 bg-blue-100 rounded border border-blue-300 md:flex-1">
               {getCardsByZone(state.cards, "hand").map((card) => (
                 <Card
                   key={card.id}
@@ -443,7 +443,11 @@ function PlayDeck() {
                   imageUrl={card.imageUrl}
                 />
               ))}
-            </div>
+            </div> */}
+            <HandArea
+              handCards={getCardsByZone(state.cards, "hand")}
+              onClickCard={handleFlipHandCard}
+            />
 
             {/* 山札＆シャッフル */}
             <div className="flex items-center justify-center p-1 gap-2 bg-gray-300 rounded border border-gray-400">
