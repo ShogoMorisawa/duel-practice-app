@@ -1,11 +1,11 @@
-import React, { useReducer } from "react";
+import React, { useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-// 初期状態の定義
+// 初期状態
 const initialState = {
   name: "",
-  cards: Array(40).fill(""),
+  cards: Array(40).fill(null), // カード画像のURLまたはBase64データ
   isSubmitting: false,
   error: null,
 };
@@ -32,10 +32,27 @@ function deckFormReducer(state, action) {
 
 const NewDeckForm = ({ onDeckCreated }) => {
   const [state, dispatch] = useReducer(deckFormReducer, initialState);
+  const [currentPage, setCurrentPage] = useState(0);
   const navigate = useNavigate();
 
-  const handleCardChange = (index, value) => {
-    dispatch({ type: "SET_CARD", index, payload: value });
+  const handleCardDrop = (e, index) => {
+    e.preventDefault();
+    const url = e.dataTransfer.getData("text/uri-list");
+
+    if (url && url.startsWith("https://")) {
+      // 外部URLの場合（仮対応）
+      dispatch({ type: "SET_CARD", index, payload: url });
+      return;
+    }
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        dispatch({ type: "SET_CARD", index, payload: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -45,7 +62,7 @@ const NewDeckForm = ({ onDeckCreated }) => {
     try {
       await axios.post("http://localhost:3000/api/decks", {
         name: state.name,
-        cards: state.cards.filter((card) => card.trim() !== ""), // 空のカードをフィルタリング
+        cards: state.cards.filter((card) => card !== null),
       });
       dispatch({ type: "SUBMIT_SUCCESS" });
       if (onDeckCreated) onDeckCreated();
@@ -56,37 +73,35 @@ const NewDeckForm = ({ onDeckCreated }) => {
     }
   };
 
-  // カード入力フォームを8x5のグリッドで表示するための補助関数
   const renderCardInputs = () => {
-    const rows = [];
-    for (let i = 0; i < 5; i++) {
-      const rowCards = [];
-      for (let j = 0; j < 8; j++) {
-        const index = i * 8 + j;
-        if (index < 40) {
-          rowCards.push(
+    const pageStartIndex = currentPage * 8;
+    const pageCards = state.cards.slice(pageStartIndex, pageStartIndex + 8);
+
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {pageCards.map((card, i) => {
+          const index = pageStartIndex + i;
+          return (
             <div
               key={index}
-              className="w-full sm:w-1/2 md:w-1/4 lg:w-1/8 px-1 mb-2"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleCardDrop(e, index)}
+              className="w-full h-32 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center bg-gray-50 relative"
             >
-              <input
-                type="text"
-                placeholder={`カード ${index + 1}`}
-                value={state.cards[index]}
-                onChange={(e) => handleCardChange(index, e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
+              {card ? (
+                <img
+                  src={card}
+                  alt={`カード${index + 1}`}
+                  className="w-full h-full object-cover rounded-md"
+                />
+              ) : (
+                <span className="text-gray-400 text-sm">ここにドロップ</span>
+              )}
             </div>
           );
-        }
-      }
-      rows.push(
-        <div key={i} className="flex flex-wrap -mx-1">
-          {rowCards}
-        </div>
-      );
-    }
-    return rows;
+        })}
+      </div>
+    );
   };
 
   return (
@@ -121,9 +136,44 @@ const NewDeckForm = ({ onDeckCreated }) => {
 
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-700 mb-3">
-            カード名（40枚）
+            カード登録（40枚）
           </h3>
-          <div className="space-y-3">{renderCardInputs()}</div>
+
+          {/* カード入力エリア */}
+          {renderCardInputs()}
+
+          {/* ページネーション */}
+          <div className="flex justify-between items-center mt-6">
+            <button
+              type="button"
+              disabled={currentPage === 0}
+              onClick={() => setCurrentPage(currentPage - 1)}
+              className={`px-4 py-2 rounded ${
+                currentPage === 0
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
+            >
+              前へ
+            </button>
+
+            <div className="text-gray-700 font-medium">
+              ページ {currentPage + 1} / 5
+            </div>
+
+            <button
+              type="button"
+              disabled={currentPage === 4}
+              onClick={() => setCurrentPage(currentPage + 1)}
+              className={`px-4 py-2 rounded ${
+                currentPage === 4
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
+            >
+              次へ
+            </button>
+          </div>
         </div>
 
         {state.error && (
