@@ -52,22 +52,35 @@ function reducer(state, action) {
       return { ...state, cards: [...state.cards, action.payload] };
 
     case ACTIONS.MOVE_CARD_ZONE: {
-      const { id, newZone, newProps = {} } = action.payload;
-      const newCards = state.cards.map((card) =>
-        card.id === id
-          ? {
-              ...card,
-              zone: newZone,
-              // フィールドゾーンに移動する場合、座標情報を追加
-              ...(newZone === "field" && !card.x ? { x: 0, y: 0 } : {}),
-              // フィールドゾーン以外に移動する場合、座標情報を削除
-              ...(newZone !== "field" ? { x: undefined, y: undefined } : {}),
-              ...newProps,
-            }
-          : card
-      );
-      console.log("[Reducer] Moving card to zone:", id, newZone, newCards);
-      return { ...state, cards: newCards };
+      const { id, newZone, newProps = {}, insertAtTop } = action.payload;
+
+      // ① 対象カードを更新
+      const updatedCard = state.cards.find((card) => card.id === id);
+      if (!updatedCard) return state;
+
+      const modifiedCard = {
+        ...updatedCard,
+        zone: newZone,
+        ...(newZone === "field" && !updatedCard.x ? { x: 0, y: 0 } : {}),
+        ...(newZone !== "field" ? { x: undefined, y: undefined } : {}),
+        ...newProps,
+      };
+
+      // ② 対象カードを除いた配列を作成
+      const remainingCards = state.cards.filter((card) => card.id !== id);
+
+      // ③ zoneが"deck"で insertAtTop の場合、先頭 or 末尾に挿入
+      const newCards =
+        newZone === "deck"
+          ? insertAtTop
+            ? [modifiedCard, ...remainingCards]
+            : [...remainingCards, modifiedCard]
+          : [...remainingCards, modifiedCard];
+
+      return {
+        ...state,
+        cards: newCards,
+      };
     }
 
     case ACTIONS.UPDATE_POSITION: {
@@ -148,6 +161,7 @@ function PlayDeck() {
   const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 }); // 初期値を0に変更
   const [flipMode, setFlipMode] = useState(false); // 裏返しモードの状態管理を追加
+  const [deckTopMode, setDeckTopMode] = useState(false); // 山札の上に戻すモードを追加
 
   // 1. デッキデータ取得 Effect
   useEffect(() => {
@@ -280,63 +294,6 @@ function PlayDeck() {
     dispatch({ type: ACTIONS.DRAW_CARD });
   }, [state.cards]);
 
-  // 裏返しモードの切り替え
-  const handleToggleFlipMode = useCallback(() => {
-    setFlipMode((prev) => !prev);
-  }, []);
-
-  // カードの裏返し処理
-  const handleFlipCard = useCallback(
-    (cardId) => {
-      if (flipMode) {
-        const card = state.cards.find((card) => card.id === cardId);
-        if (card && card.zone === "field") {
-          dispatch({
-            type: ACTIONS.FLIP_CARD,
-            payload: { id: cardId },
-          });
-          setFlipMode(false); // 1枚裏返したら自動的にモード解除
-        }
-      }
-    },
-    [flipMode, state.cards]
-  );
-
-  // 場のカードを回転（クリック時）
-  const handleRotateFieldCard = useCallback(
-    (cardId) => {
-      console.log("[DEBUG] handleRotateFieldCard called with cardId:", cardId);
-
-      const card = getCardsByZone(state.cards, "field").find(
-        (card) => card.id === cardId
-      );
-
-      if (!card) {
-        console.error("[ERROR] Card not found with id:", cardId);
-        return;
-      }
-
-      // 現在の回転角度を取得
-      const currentRotation = card.rotation || 0;
-
-      // 次の回転角度を計算
-      const newRotation = (currentRotation + 90) % 360;
-
-      console.log(
-        `[DEBUG] Rotating card from ${currentRotation} to ${newRotation} degrees`
-      );
-
-      dispatch({
-        type: ACTIONS.ROTATE_CARD,
-        payload: {
-          id: cardId,
-          rotation: newRotation,
-        },
-      });
-    },
-    [state.cards]
-  );
-
   // 手札から場へのドロップ処理 (FreePlacementArea用)
   const handleDropToField = useCallback(
     (dropInfo) => {
@@ -407,6 +364,39 @@ function PlayDeck() {
     [state.cards, handleMoveFieldCard]
   );
 
+  // カードのクリック処理（フィールド・手札共通）
+  const handleCardClick = useCallback(
+    (cardId) => {
+      const card = state.cards.find((card) => card.id === cardId);
+
+      // 山札の上に戻すモードの場合
+      if (deckTopMode && (card.zone === "field" || card.zone === "hand")) {
+        dispatch({
+          type: ACTIONS.MOVE_CARD_ZONE,
+          payload: {
+            id: card.id,
+            newZone: "deck",
+            newProps: { isFlipped: true },
+            insertAtTop: true,
+          },
+        });
+        setDeckTopMode(false);
+        return;
+      }
+
+      // 裏返しモードの場合
+      if (flipMode && (card.zone === "field" || card.zone === "hand")) {
+        dispatch({
+          type: ACTIONS.FLIP_CARD,
+          payload: { id: cardId },
+        });
+        setFlipMode(false);
+        return;
+      }
+    },
+    [deckTopMode, flipMode, state.cards]
+  );
+
   // --- レンダリング ---
 
   if (state.loading)
@@ -436,10 +426,26 @@ function PlayDeck() {
               fieldCards={getCardsByZone(state.cards, "field")}
               onDropCard={handleDropToField}
               onMoveCard={handleMoveFieldCard}
-              onClickCard={handleFlipCard}
+              onClickCard={handleCardClick}
               onInit={handleFieldInit}
               className="w-full h-full bg-green-100 rounded shadow-inner border border-green-300 overflow-auto"
             />
+
+            {/* モード中のメッセージ */}
+            {(deckTopMode || flipMode) && (
+              <div className="text-sm font-semibold mt-2 text-center">
+                {deckTopMode && (
+                  <div className="text-blue-700">
+                    山札の上に戻すカードを選択してください
+                  </div>
+                )}
+                {flipMode && (
+                  <div className="text-yellow-700">
+                    裏返すカードを選択してください（手札または場のカード）
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* アクションエリア・コントロールパネル */}
@@ -447,7 +453,7 @@ function PlayDeck() {
             {/* 手札エリア */}
             <HandArea
               handCards={getCardsByZone(state.cards, "hand")}
-              onClickCard={handleFlipCard}
+              onClickCard={handleCardClick}
               onDropFromField={(item) => {
                 dispatch({
                   type: ACTIONS.MOVE_CARD_ZONE,
@@ -488,12 +494,18 @@ function PlayDeck() {
               {/* ボタンWrapper */}
               <div className="grid grid-cols-2 w-[160px] h-[120px] gap-1">
                 <button
-                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
-                  onClick={() => {}}
+                  className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
+                    deckTopMode
+                      ? "bg-blue-400 hover:bg-blue-500 text-white border-blue-600"
+                      : "bg-white hover:bg-blue-50 border-gray-100"
+                  }`}
+                  onClick={() => setDeckTopMode((prev) => !prev)}
                   aria-label="山札の上に戻す"
                 >
                   <span className="text-lg">↑</span>
-                  <span className="whitespace-nowrap">上に戻す</span>
+                  <span className="whitespace-nowrap">
+                    {deckTopMode ? "モード中" : "上に戻す"}
+                  </span>
                 </button>
                 <button
                   className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
@@ -518,12 +530,12 @@ function PlayDeck() {
                       ? "bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-600"
                       : "bg-white hover:bg-purple-50 border-gray-100"
                   }`}
-                  onClick={handleToggleFlipMode}
+                  onClick={() => setFlipMode((prev) => !prev)}
                   aria-label="カードを裏返す"
                 >
                   <span className="text-lg">🔄</span>
                   <span className="whitespace-nowrap">
-                    {flipMode ? "裏返しモード中" : "裏返す"}
+                    {flipMode ? "モード中" : "裏返す"}
                   </span>
                 </button>
               </div>
