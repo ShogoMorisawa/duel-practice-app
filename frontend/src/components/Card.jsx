@@ -12,6 +12,7 @@ import { useDrag } from "react-dnd";
  * @param {string} props.type - カードの種類（手札、シールド、山札など）[後方互換用]
  * @param {string} props.zone - カードのゾーン（hand, deck, field など）
  * @param {string} props.imageUrl - カード画像のURL
+ * @param {number} props.rotation - 回転角度
  */
 const Card = ({
   id,
@@ -22,6 +23,7 @@ const Card = ({
   type = "default",
   zone,
   imageUrl,
+  rotation = 0,
 }) => {
   // デバッグログを追加
   console.log(
@@ -83,31 +85,37 @@ const Card = ({
       className={`${baseClasses} ${dragClasses} ${clickClasses} ${flipClasses} ${dragableClasses}`}
       onClick={onClick}
       draggable={actualZone !== "deck"}
+      style={{
+        transform: `rotate(${rotation}deg)`,
+      }}
     >
-      {!isFlipped ? (
-        imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={name}
-            className="w-full h-full object-cover rounded"
-            style={{ padding: 0 }}
-            onError={(e) => {
-              console.error(
-                `[Card Image Error] Failed to load image: ${imageUrl}`
-              );
-              e.target.onerror = null;
-              e.target.src = "/images/card-back.png"; // 画像が読み込めない場合はNoImage画像を表示
-            }}
-          />
-        ) : (
-          <>
-            <div className="font-bold text-center truncate text-[8px]">
-              {name}
-            </div>
-            {cost && <div className="text-[8px] text-center">{cost}</div>}
-          </>
-        )
-      ) : null}
+      {isFlipped ? (
+        // 🔄 裏面表示
+        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-[8px] rounded">
+          裏面
+        </div>
+      ) : imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={name}
+          className="w-full h-full object-cover rounded"
+          style={{ padding: 0 }}
+          onError={(e) => {
+            console.error(
+              `[Card Image Error] Failed to load image: ${imageUrl}`
+            );
+            e.target.onerror = null;
+            e.target.src = "/images/card-back.png";
+          }}
+        />
+      ) : (
+        <>
+          <div className="font-bold text-center truncate text-[8px]">
+            {name}
+          </div>
+          {cost && <div className="text-[8px] text-center">{cost}</div>}
+        </>
+      )}
     </div>
   );
 };

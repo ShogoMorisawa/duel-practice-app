@@ -93,11 +93,15 @@ function reducer(state, action) {
     }
 
     case ACTIONS.ROTATE_CARD: {
-      const { id, rotation } = action.payload;
+      const { id } = action.payload;
       const newCards = state.cards.map((card) =>
-        card.id === id ? { ...card, rotation } : card
+        card.id === id
+          ? {
+              ...card,
+              rotation: ((card.rotation || 0) + 90) % 360,
+            }
+          : card
       );
-      console.log("[Reducer] Rotating card:", id, rotation, newCards);
       return { ...state, cards: newCards };
     }
 
@@ -106,7 +110,6 @@ function reducer(state, action) {
       const newCards = state.cards.map((card) =>
         card.id === id ? { ...card, isFlipped: !card.isFlipped } : card
       );
-      console.log("[Reducer] Flipping card:", id, newCards);
       return { ...state, cards: newCards };
     }
 
@@ -159,10 +162,25 @@ function PlayDeck() {
   const { deckId } = useParams();
   const [state, dispatch] = useReducer(reducer, initialState);
   const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
-  const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 }); // 初期値を0に変更
-  const [flipMode, setFlipMode] = useState(false); // 裏返しモードの状態管理を追加
-  const [deckTopMode, setDeckTopMode] = useState(false); // 山札の上に戻すモードを追加
-  const [deckBottomMode, setDeckBottomMode] = useState(false); // 山札の下に戻すモードを追加
+  const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
+  const [activeMode, setActiveMode] = useState(null); // アクティブなモードを一元管理
+
+  // モード切り替え関数
+  const activateMode = useCallback((mode) => {
+    setActiveMode(mode);
+  }, []);
+
+  const deactivateMode = useCallback(() => {
+    setActiveMode(null);
+  }, []);
+
+  // モードの状態を確認する関数
+  const isModeActive = useCallback(
+    (mode) => {
+      return activeMode === mode;
+    },
+    [activeMode]
+  );
 
   // 1. デッキデータ取得 Effect
   useEffect(() => {
@@ -295,6 +313,74 @@ function PlayDeck() {
     dispatch({ type: ACTIONS.DRAW_CARD });
   }, [state.cards]);
 
+  // カードのクリック処理（フィールド・手札共通）
+  const handleCardClick = useCallback(
+    (cardId) => {
+      const card = state.cards.find((card) => card.id === cardId);
+
+      // 裏返しモードの場合
+      if (
+        isModeActive("flip") &&
+        (card.zone === "field" || card.zone === "hand")
+      ) {
+        dispatch({
+          type: ACTIONS.FLIP_CARD,
+          payload: { id: cardId },
+        });
+        deactivateMode();
+        return;
+      }
+
+      // 山札の上に戻すモードの場合
+      if (
+        isModeActive("deckTop") &&
+        (card.zone === "field" || card.zone === "hand")
+      ) {
+        dispatch({
+          type: ACTIONS.MOVE_CARD_ZONE,
+          payload: {
+            id: card.id,
+            newZone: "deck",
+            newProps: { isFlipped: true },
+            insertAtTop: true,
+          },
+        });
+        deactivateMode();
+        return;
+      }
+
+      // 山札の下に戻すモードの場合
+      if (
+        isModeActive("deckBottom") &&
+        (card.zone === "field" || card.zone === "hand")
+      ) {
+        dispatch({
+          type: ACTIONS.MOVE_CARD_ZONE,
+          payload: {
+            id: card.id,
+            newZone: "deck",
+            newProps: { isFlipped: true },
+            insertAtTop: false,
+          },
+        });
+        deactivateMode();
+        return;
+      }
+
+      // 通常時は回転
+      if (card.zone === "field") {
+        dispatch({
+          type: ACTIONS.ROTATE_CARD,
+          payload: {
+            id: cardId,
+            rotation: ((card.rotation || 0) + 90) % 360,
+          },
+        });
+      }
+    },
+    [activeMode, state.cards, deactivateMode, isModeActive]
+  );
+
   // 手札から場へのドロップ処理 (FreePlacementArea用)
   const handleDropToField = useCallback(
     (dropInfo) => {
@@ -365,54 +451,6 @@ function PlayDeck() {
     [state.cards, handleMoveFieldCard]
   );
 
-  // カードのクリック処理（フィールド・手札共通）
-  const handleCardClick = useCallback(
-    (cardId) => {
-      const card = state.cards.find((card) => card.id === cardId);
-
-      // 山札の上に戻すモードの場合
-      if (deckTopMode && (card.zone === "field" || card.zone === "hand")) {
-        dispatch({
-          type: ACTIONS.MOVE_CARD_ZONE,
-          payload: {
-            id: card.id,
-            newZone: "deck",
-            newProps: { isFlipped: true },
-            insertAtTop: true,
-          },
-        });
-        setDeckTopMode(false);
-        return;
-      }
-
-      // 山札の下に戻すモードの場合
-      if (deckBottomMode && (card.zone === "field" || card.zone === "hand")) {
-        dispatch({
-          type: ACTIONS.MOVE_CARD_ZONE,
-          payload: {
-            id: card.id,
-            newZone: "deck",
-            newProps: { isFlipped: true },
-            insertAtTop: false,
-          },
-        });
-        setDeckBottomMode(false);
-        return;
-      }
-
-      // 裏返しモードの場合
-      if (flipMode && (card.zone === "field" || card.zone === "hand")) {
-        dispatch({
-          type: ACTIONS.FLIP_CARD,
-          payload: { id: cardId },
-        });
-        setFlipMode(false);
-        return;
-      }
-    },
-    [deckTopMode, deckBottomMode, flipMode, state.cards]
-  );
-
   // --- レンダリング ---
 
   if (state.loading)
@@ -448,23 +486,14 @@ function PlayDeck() {
             />
 
             {/* モード中のメッセージ */}
-            {(deckTopMode || deckBottomMode || flipMode) && (
-              <div className="text-sm font-semibold mt-2 text-center">
-                {deckTopMode && (
-                  <div className="text-blue-700">
-                    山札の上に戻すカードを選択してください
-                  </div>
-                )}
-                {deckBottomMode && (
-                  <div className="text-blue-700">
-                    山札の下に戻すカードを選択してください
-                  </div>
-                )}
-                {flipMode && (
-                  <div className="text-yellow-700">
-                    裏返すカードを選択してください（手札または場のカード）
-                  </div>
-                )}
+            {isModeActive("deckTop") && (
+              <div className="text-sm text-blue-700 font-semibold mt-2 text-center">
+                山札の上に戻すカードを選択してください
+              </div>
+            )}
+            {isModeActive("deckBottom") && (
+              <div className="text-sm text-blue-700 font-semibold mt-2 text-center">
+                山札の下に戻すカードを選択してください
               </div>
             )}
           </div>
@@ -516,16 +545,16 @@ function PlayDeck() {
               <div className="grid grid-cols-2 w-[160px] h-[120px] gap-1">
                 <button
                   className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
-                    deckTopMode
+                    isModeActive("deckTop")
                       ? "bg-blue-400 hover:bg-blue-500 text-white border-blue-600"
                       : "bg-white hover:bg-blue-50 border-gray-100"
                   }`}
-                  onClick={() => setDeckTopMode((prev) => !prev)}
+                  onClick={() => activateMode("deckTop")}
                   aria-label="山札の上に戻す"
                 >
                   <span className="text-lg">↑</span>
                   <span className="whitespace-nowrap">
-                    {deckTopMode ? "モード中" : "上に戻す"}
+                    {isModeActive("deckTop") ? "モード中" : "上に戻す"}
                   </span>
                 </button>
                 <button
@@ -539,30 +568,30 @@ function PlayDeck() {
                 </button>
                 <button
                   className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
-                    deckBottomMode
+                    isModeActive("deckBottom")
                       ? "bg-blue-400 hover:bg-blue-500 text-white border-blue-600"
                       : "bg-white hover:bg-blue-50 border-gray-100"
                   }`}
-                  onClick={() => setDeckBottomMode((prev) => !prev)}
+                  onClick={() => activateMode("deckBottom")}
                   aria-label="山札の下に戻す"
                 >
                   <span className="text-lg">↓</span>
                   <span className="whitespace-nowrap">
-                    {deckBottomMode ? "モード中" : "下に戻す"}
+                    {isModeActive("deckBottom") ? "モード中" : "下に戻す"}
                   </span>
                 </button>
                 <button
                   className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
-                    flipMode
+                    isModeActive("flip")
                       ? "bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-600"
                       : "bg-white hover:bg-purple-50 border-gray-100"
                   }`}
-                  onClick={() => setFlipMode((prev) => !prev)}
+                  onClick={() => activateMode("flip")}
                   aria-label="カードを裏返す"
                 >
                   <span className="text-lg">🔄</span>
                   <span className="whitespace-nowrap">
-                    {flipMode ? "モード中" : "裏返す"}
+                    {isModeActive("flip") ? "裏返しモード中" : "裏返す"}
                   </span>
                 </button>
               </div>
