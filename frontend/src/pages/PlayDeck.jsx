@@ -469,14 +469,43 @@ function PlayDeck() {
                   )}
                 </div>
               </div>
-              {/* シャッフルボタン */}
-              <button
-                className="bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 px-2 rounded"
-                onClick={handleShuffleDeck}
-                disabled={getCardsByZone(state.cards, "deck").length <= 1}
-              >
-                シャッフル
-              </button>
+
+              {/* ボタンWrapper */}
+              <div className="grid grid-cols-2 w-[160px] h-[120px] gap-1">
+                <button
+                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
+                  onClick={() => {}}
+                  aria-label="山札の上に戻す"
+                >
+                  <span className="text-lg">↑</span>
+                  <span className="whitespace-nowrap">上に戻す</span>
+                </button>
+                <button
+                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
+                  onClick={handleShuffleDeck}
+                  disabled={getCardsByZone(state.cards, "deck").length <= 1}
+                  aria-label="山札をシャッフル"
+                >
+                  <span className="text-lg">🔀</span>
+                  <span className="whitespace-nowrap">シャッフル</span>
+                </button>
+                <button
+                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
+                  onClick={() => {}}
+                  aria-label="山札の下に戻す"
+                >
+                  <span className="text-lg">↓</span>
+                  <span className="whitespace-nowrap">下に戻す</span>
+                </button>
+                <button
+                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
+                  onClick={() => {}}
+                  aria-label="カードを裏返す"
+                >
+                  <span className="text-lg">🔄</span>
+                  <span className="whitespace-nowrap">裏返す</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
