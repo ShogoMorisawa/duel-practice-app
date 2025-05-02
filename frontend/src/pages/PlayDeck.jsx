@@ -162,6 +162,7 @@ function PlayDeck() {
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 }); // 初期値を0に変更
   const [flipMode, setFlipMode] = useState(false); // 裏返しモードの状態管理を追加
   const [deckTopMode, setDeckTopMode] = useState(false); // 山札の上に戻すモードを追加
+  const [deckBottomMode, setDeckBottomMode] = useState(false); // 山札の下に戻すモードを追加
 
   // 1. デッキデータ取得 Effect
   useEffect(() => {
@@ -384,6 +385,21 @@ function PlayDeck() {
         return;
       }
 
+      // 山札の下に戻すモードの場合
+      if (deckBottomMode && (card.zone === "field" || card.zone === "hand")) {
+        dispatch({
+          type: ACTIONS.MOVE_CARD_ZONE,
+          payload: {
+            id: card.id,
+            newZone: "deck",
+            newProps: { isFlipped: true },
+            insertAtTop: false,
+          },
+        });
+        setDeckBottomMode(false);
+        return;
+      }
+
       // 裏返しモードの場合
       if (flipMode && (card.zone === "field" || card.zone === "hand")) {
         dispatch({
@@ -394,7 +410,7 @@ function PlayDeck() {
         return;
       }
     },
-    [deckTopMode, flipMode, state.cards]
+    [deckTopMode, deckBottomMode, flipMode, state.cards]
   );
 
   // --- レンダリング ---
@@ -432,11 +448,16 @@ function PlayDeck() {
             />
 
             {/* モード中のメッセージ */}
-            {(deckTopMode || flipMode) && (
+            {(deckTopMode || deckBottomMode || flipMode) && (
               <div className="text-sm font-semibold mt-2 text-center">
                 {deckTopMode && (
                   <div className="text-blue-700">
                     山札の上に戻すカードを選択してください
+                  </div>
+                )}
+                {deckBottomMode && (
+                  <div className="text-blue-700">
+                    山札の下に戻すカードを選択してください
                   </div>
                 )}
                 {flipMode && (
@@ -517,12 +538,18 @@ function PlayDeck() {
                   <span className="whitespace-nowrap">シャッフル</span>
                 </button>
                 <button
-                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
-                  onClick={() => {}}
+                  className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
+                    deckBottomMode
+                      ? "bg-blue-400 hover:bg-blue-500 text-white border-blue-600"
+                      : "bg-white hover:bg-blue-50 border-gray-100"
+                  }`}
+                  onClick={() => setDeckBottomMode((prev) => !prev)}
                   aria-label="山札の下に戻す"
                 >
                   <span className="text-lg">↓</span>
-                  <span className="whitespace-nowrap">下に戻す</span>
+                  <span className="whitespace-nowrap">
+                    {deckBottomMode ? "モード中" : "下に戻す"}
+                  </span>
                 </button>
                 <button
                   className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
