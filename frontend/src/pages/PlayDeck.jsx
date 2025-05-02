@@ -430,23 +430,22 @@ function PlayDeck() {
           {/* アクションエリア・コントロールパネル */}
           <div className="flex flex-col md:flex-row bg-gray-200 rounded shadow p-1 md:p-2 gap-1 md:gap-2">
             {/* 手札エリア */}
-            {/* <div className="flex flex-wrap justify-center items-center gap-1 p-1 bg-blue-100 rounded border border-blue-300 md:flex-1">
-              {getCardsByZone(state.cards, "hand").map((card) => (
-                <Card
-                  key={card.id}
-                  id={card.id}
-                  name={card.name}
-                  cost={card.cost}
-                  isFlipped={card.isFlipped}
-                  zone="hand"
-                  onClick={() => handleFlipHandCard(card.id)}
-                  imageUrl={card.imageUrl}
-                />
-              ))}
-            </div> */}
             <HandArea
               handCards={getCardsByZone(state.cards, "hand")}
               onClickCard={handleFlipHandCard}
+              onDropFromField={(item) => {
+                dispatch({
+                  type: ACTIONS.MOVE_CARD_ZONE,
+                  payload: {
+                    id: item.id,
+                    newZone: "hand",
+                    newProps: {
+                      rotation: 0,
+                      isFlipped: false,
+                    },
+                  },
+                });
+              }}
             />
 
             {/* 山札＆シャッフル */}
