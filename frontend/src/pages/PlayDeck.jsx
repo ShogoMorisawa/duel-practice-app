@@ -147,6 +147,7 @@ function PlayDeck() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 }); // 初期値を0に変更
+  const [flipMode, setFlipMode] = useState(false); // 裏返しモードの状態管理を追加
 
   // 1. デッキデータ取得 Effect
   useEffect(() => {
@@ -279,13 +280,27 @@ function PlayDeck() {
     dispatch({ type: ACTIONS.DRAW_CARD });
   }, [state.cards]);
 
-  // 手札のカードを反転
-  const handleFlipHandCard = useCallback((cardId) => {
-    dispatch({
-      type: ACTIONS.FLIP_CARD,
-      payload: { id: cardId },
-    });
+  // 裏返しモードの切り替え
+  const handleToggleFlipMode = useCallback(() => {
+    setFlipMode((prev) => !prev);
   }, []);
+
+  // カードの裏返し処理
+  const handleFlipCard = useCallback(
+    (cardId) => {
+      if (flipMode) {
+        const card = state.cards.find((card) => card.id === cardId);
+        if (card && card.zone === "field") {
+          dispatch({
+            type: ACTIONS.FLIP_CARD,
+            payload: { id: cardId },
+          });
+          setFlipMode(false); // 1枚裏返したら自動的にモード解除
+        }
+      }
+    },
+    [flipMode, state.cards]
+  );
 
   // 場のカードを回転（クリック時）
   const handleRotateFieldCard = useCallback(
@@ -421,7 +436,7 @@ function PlayDeck() {
               fieldCards={getCardsByZone(state.cards, "field")}
               onDropCard={handleDropToField}
               onMoveCard={handleMoveFieldCard}
-              onClickCard={handleRotateFieldCard}
+              onClickCard={handleFlipCard}
               onInit={handleFieldInit}
               className="w-full h-full bg-green-100 rounded shadow-inner border border-green-300 overflow-auto"
             />
@@ -432,7 +447,7 @@ function PlayDeck() {
             {/* 手札エリア */}
             <HandArea
               handCards={getCardsByZone(state.cards, "hand")}
-              onClickCard={handleFlipHandCard}
+              onClickCard={handleFlipCard}
               onDropFromField={(item) => {
                 dispatch({
                   type: ACTIONS.MOVE_CARD_ZONE,
@@ -498,12 +513,18 @@ function PlayDeck() {
                   <span className="whitespace-nowrap">下に戻す</span>
                 </button>
                 <button
-                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
-                  onClick={() => {}}
+                  className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
+                    flipMode
+                      ? "bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-600"
+                      : "bg-white hover:bg-purple-50 border-gray-100"
+                  }`}
+                  onClick={handleToggleFlipMode}
                   aria-label="カードを裏返す"
                 >
                   <span className="text-lg">🔄</span>
-                  <span className="whitespace-nowrap">裏返す</span>
+                  <span className="whitespace-nowrap">
+                    {flipMode ? "裏返しモード中" : "裏返す"}
+                  </span>
                 </button>
               </div>
             </div>
