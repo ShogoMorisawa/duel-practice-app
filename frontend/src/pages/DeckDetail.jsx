@@ -54,6 +54,7 @@ const DeckDetail = () => {
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.style.display = "none"; // 読み込み失敗したら非表示
+                  console.error("画像の読み込みに失敗しました:", card.imageUrl);
                 }}
               />
             ) : (

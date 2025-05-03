@@ -1,6 +1,7 @@
 import React, { useEffect, useReducer } from "react";
 import axios from "axios";
 import { NavLink } from "react-router-dom";
+import { API_BASE_URL } from "../utils/api";
 
 // アクションタイプを定義
 const ACTIONS = {
@@ -38,7 +39,7 @@ const DeckList = () => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:3000/api/decks")
+      .get(`${API_BASE_URL}/api/decks`)
       .then((res) => dispatch({ type: ACTIONS.SET_DECKS, payload: res.data }))
       .catch((err) => console.error("デッキ取得に失敗！", err));
   }, []);
@@ -48,7 +49,7 @@ const DeckList = () => {
     if (!state.newDeckName.trim()) return;
 
     axios
-      .post("http://localhost:3000/api/decks", { name: state.newDeckName })
+      .post(`${API_BASE_URL}/api/decks`, { name: state.newDeckName })
       .then((res) => {
         dispatch({ type: ACTIONS.ADD_DECK, payload: res.data });
       })
@@ -59,7 +60,7 @@ const DeckList = () => {
     e.preventDefault();
     e.stopPropagation();
     axios
-      .delete(`http://localhost:3000/api/decks/${id}`)
+      .delete(`${API_BASE_URL}/api/decks/${id}`)
       .then(() => {
         dispatch({
           type: ACTIONS.SET_DECKS,

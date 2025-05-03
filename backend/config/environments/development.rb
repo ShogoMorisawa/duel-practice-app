@@ -31,6 +31,27 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
+  # IPアドレスでのアクセスを許可
+  config.hosts << "192.168.1.21"
+  # セキュリティ制限を緩和（開発環境のみ）
+  config.hosts.clear
+
+  # ActiveStorageのホスト設定 - シンプルに統一
+  config.active_storage.service = :local
+  config.action_controller.default_url_options = { host: "192.168.1.21", port: 3000 }
+  Rails.application.routes.default_url_options = { host: "192.168.1.21", port: 3000, protocol: 'http' }
+
+  # ActiveStorageの設定
+  config.active_storage.service_urls_expire_in = nil # 有効期限を無効化
+  config.active_storage.content_types_to_serve_as_binary -= ['image/svg+xml']
+  config.active_storage.content_types_allowed_inline += ['image/svg+xml']
+  config.active_storage.routes_prefix = '/rails/active_storage'
+
+  # 日本語ロケールの設定
+  config.i18n.available_locales = [:en, :ja]
+  config.i18n.default_locale = :ja
+  config.i18n.fallbacks = true
+
   # Don't care if the mailer can't send.
   config.action_mailer.raise_delivery_errors = false
 
@@ -38,7 +59,7 @@ Rails.application.configure do
   # caching is enabled.
   config.action_mailer.perform_caching = false
 
-  config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
+  config.action_mailer.default_url_options = { host: "192.168.1.21", port: 3000 }
 
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log

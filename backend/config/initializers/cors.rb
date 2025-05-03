@@ -1,19 +1,21 @@
-# Be sure to restart your server when you modify this file.
-
-# Avoid CORS issues when API is called from the frontend app.
-# Handle Cross-Origin Resource Sharing (CORS) in order to accept cross-origin Ajax requests.
-
-# Read more: https://github.com/cyu/rack-cors
-
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins 'http://localhost:3000', 'http://localhost:5173' # CRAとVite両対応
+    # ローカル開発でアクセスする可能性のあるフロントエンドのURLを列挙
+    origins '*'
 
     resource '*',
       headers: :any,
       expose: ['Authorization'],
       methods: [:get, :post, :patch, :put, :delete, :options, :head],
-      credentials: true
+      credentials: false
+  end
+
+  # ActiveStorage用の設定
+  allow do
+    origins '*'
+    resource '/rails/active_storage/*',
+      headers: :any,
+      methods: [:get, :post, :patch, :put, :delete, :options, :head],
+      credentials: false
   end
 end
-

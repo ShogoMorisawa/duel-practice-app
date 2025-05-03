@@ -31,10 +31,14 @@ module Api
     private
 
     def deck_params
+<<<<<<< HEAD
+      params.require(:deck).permit(:name, cards: [])
+=======
       params.require(:deck).permit(
         :name,
         cards: [:name, :imageUrl]
       )
+>>>>>>> b6bf80d (feat: デッキ作成画面に画像アップロード機能を実装)
     end
   end
 end

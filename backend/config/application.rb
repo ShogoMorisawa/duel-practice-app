@@ -43,6 +43,11 @@ module Backend
 
     # 日本時間
     config.time_zone = 'Tokyo'
+    config.i18n.available_locales = [:en, :ja]
     config.i18n.default_locale = :ja
+
+    # ActiveStorageの設定
+    config.active_storage.variant_processor = :mini_magick
+    config.active_storage.service_urls_expire_in = 1.hour
   end
 end

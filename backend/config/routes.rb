@@ -6,6 +6,12 @@ Rails.application.routes.draw do
 
   namespace :api do
     resources :decks, only: [:index, :show, :create, :destroy]
+    post 'uploads', to: 'uploads#create'
+  end
+  
+  # ActiveStorageのルーティング
+  direct :rails_blob do |blob, options|
+    route_for(:rails_service_blob, blob, options)
   end
   
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
