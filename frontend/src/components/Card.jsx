@@ -87,6 +87,11 @@ const Card = ({
       draggable={actualZone !== "deck"}
       style={{
         transform: `rotate(${rotation}deg)`,
+        touchAction: "none",
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        pointerEvents: "auto",
       }}
     >
       {isFlipped ? (
@@ -95,17 +100,21 @@ const Card = ({
           裏面
         </div>
       ) : imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={name}
-          className="w-full h-full object-cover rounded"
-          style={{ padding: 0 }}
-          onError={(e) => {
-            console.error(
-              `[Card Image Error] Failed to load image: ${imageUrl}`
-            );
-            e.target.onerror = null;
-            e.target.src = "/images/card-back.png";
+        <div
+          className="w-full h-full bg-cover bg-center rounded"
+          style={{
+            backgroundImage: `url(${imageUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            width: "100%",
+            height: "100%",
+            borderRadius: "4px",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            touchAction: "none",
+            pointerEvents: "auto",
           }}
         />
       ) : (

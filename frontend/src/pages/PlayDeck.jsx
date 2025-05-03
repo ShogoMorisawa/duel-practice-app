@@ -2,7 +2,9 @@ import { useEffect, useCallback, useReducer, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import axios from "axios";
+import { TouchBackend } from "react-dnd-touch-backend";
+import { isMobile } from "react-device-detect";
+import { api } from "../utils/api";
 import Card from "../components/Card";
 import FreePlacementArea from "../components/FreePlacementArea";
 import HandArea from "../components/HandArea";
@@ -184,32 +186,19 @@ function PlayDeck() {
 
   // 1. デッキデータ取得 Effect
   useEffect(() => {
-    dispatch({ type: ACTIONS.SET_LOADING, payload: true });
-    axios
-      .get(`http://localhost:3000/api/decks/${deckId}`)
-      .then((res) => {
-        // APIレスポンスに cards 配列が含まれているか確認
-        if (res.data && Array.isArray(res.data.cards)) {
-          dispatch({ type: ACTIONS.SET_DECK_INFO, payload: res.data });
-        } else {
-          console.error(
-            "API response is missing or has invalid 'cards' array:",
-            res.data
-          );
-          // エラー状態にするか、空のデッキとして扱うなどの処理
-          dispatch({
-            type: ACTIONS.SET_DECK_INFO,
-            payload: { ...res.data, cards: [] },
-          });
-        }
+    const fetchDeck = async () => {
+      try {
+        const response = await api.get(`/decks/${deckId}`);
+        dispatch({ type: ACTIONS.SET_DECK_INFO, payload: response.data });
         dispatch({ type: ACTIONS.SET_LOADING, payload: false });
-      })
-      .catch((err) => {
-        console.error("デッキ取得に失敗！", err);
+      } catch (error) {
+        console.error("Error fetching deck:", error);
         dispatch({ type: ACTIONS.SET_LOADING, payload: false });
-        // エラー表示などの処理を追加しても良い
-      });
-  }, [deckId]); // deckId が変わった時だけ再実行
+      }
+    };
+
+    fetchDeck();
+  }, [deckId]);
 
   // フィールドサイズの初期化ハンドラ
   const handleFieldInit = useCallback((size) => {
@@ -250,7 +239,7 @@ function PlayDeck() {
           zone: "field",
           isFlipped: true,
           x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60,
-          y: fieldSize.height / 2 + 80,
+          y: fieldSize.height / 2,
           rotation: 0,
         })
       );
@@ -462,10 +451,21 @@ function PlayDeck() {
       </div>
     );
 
-  const fieldCards = getCardsByZone(state.cards, "field");
-
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider
+      backend={isMobile ? TouchBackend : HTML5Backend}
+      options={
+        isMobile
+          ? {
+              enableMouseEvents: true,
+              delayTouchStart: 0,
+              delayMouseStart: 0,
+              touchSlop: 0,
+              ignoreContextMenu: true,
+            }
+          : undefined
+      }
+    >
       <div className="flex flex-col h-screen bg-gray-100">
         {/* ヘッダー */}
         <header className="bg-gray-800 text-white shadow p-2 text-sm font-semibold flex justify-between items-center">

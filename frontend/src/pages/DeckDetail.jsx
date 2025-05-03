@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import { api } from "../utils/api";
 
 const DeckDetail = () => {
   const { id } = useParams();
@@ -11,9 +11,7 @@ const DeckDetail = () => {
   useEffect(() => {
     const fetchDeck = async () => {
       try {
-        const response = await axios.get(
-          `http://localhost:3000/api/decks/${id}`
-        );
+        const response = await api.get(`/decks/${id}`);
         setDeck(response.data);
         setLoading(false);
       } catch (err) {

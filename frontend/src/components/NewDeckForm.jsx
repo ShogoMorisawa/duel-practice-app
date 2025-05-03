@@ -1,6 +1,6 @@
 import React, { useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api } from "../utils/api";
 
 const initialState = {
   name: "",
@@ -65,7 +65,7 @@ const NewDeckForm = ({ onDeckCreated }) => {
     dispatch({ type: "SUBMIT_START" });
 
     try {
-      await axios.post("http://localhost:3000/api/decks", {
+      await api.post("/decks", {
         name: state.name,
         cards: state.cards,
       });

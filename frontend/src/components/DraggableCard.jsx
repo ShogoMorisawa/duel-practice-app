@@ -72,6 +72,7 @@ const DraggableCard = ({
         // ドラッグ開始時の時間を記録
         dragStartTimeRef.current = Date.now();
         isDraggingRef.current = true;
+        console.log("🧪 isDragging", true); // ドラッグ開始時のログ
 
         return {
           id,
@@ -110,11 +111,16 @@ const DraggableCard = ({
         // ドラッグ終了後、少し待ってからフラグをリセット
         setTimeout(() => {
           isDraggingRef.current = false;
+          console.log("🧪 isDragging", false); // ドラッグ終了時のログ
         }, 300);
       },
-      collect: (monitor) => ({
-        isDragging: monitor.isDragging(),
-      }),
+      collect: (monitor) => {
+        const dragging = monitor.isDragging();
+        console.log("🧪 isDragging (collect)", dragging); // collect時のログ
+        return {
+          isDragging: dragging,
+        };
+      },
     }),
     [
       id,
@@ -126,7 +132,7 @@ const DraggableCard = ({
       rotation,
       onMove,
       actualZone,
-      imageUrl, // imageUrlを依存配列に追加
+      imageUrl,
     ]
   );
 
@@ -193,14 +199,22 @@ const DraggableCard = ({
     opacity: isDragging ? 0.5 : 1,
     cursor: "move",
     zIndex: isDragging ? 1000 : 1,
-    transition: isDragging ? "none" : "transform 0.2s", // ドラッグ中はアニメーションを無効化
+    transition: isDragging ? "none" : "transform 0.2s",
+    touchAction: "none",
+    WebkitTouchCallout: "none",
+    WebkitUserSelect: "none",
+    userSelect: "none",
   };
 
   return (
     <div
       ref={dragRef}
       style={style}
-      onContextMenu={handleRotate} // 右クリックで回転
+      onContextMenu={handleRotate}
+      onTouchStart={() => console.log("📱 Touch start on card:", id)}
+      onTouchMove={() => console.log("📱 Touch move on card:", id)}
+      onTouchEnd={() => console.log("📱 Touch end on card:", id)}
+      className="absolute touch-none select-none"
     >
       <Card
         id={id}
@@ -209,7 +223,7 @@ const DraggableCard = ({
         isFlipped={isFlipped}
         type={type}
         zone={actualZone}
-        onClick={handleCardClick} // 左クリックはCardコンポーネントのクリックイベントで処理
+        onClick={handleCardClick}
         draggable={false}
         imageUrl={imageUrl}
       />

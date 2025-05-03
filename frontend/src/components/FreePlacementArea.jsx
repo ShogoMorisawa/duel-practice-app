@@ -18,7 +18,6 @@ const FreePlacementArea = ({
   onMoveCard,
   onClickCard,
   onInit,
-  className = "",
 }) => {
   const areaRef = useRef(null);
 
@@ -34,7 +33,19 @@ const FreePlacementArea = ({
     () => ({
       accept: "CARD",
       drop: (item, monitor) => {
-        console.log("[FreePlacementArea] Drop detected! Item:", item);
+        console.log(
+          "[FreePlacementArea] Drop detected! Item:",
+          item,
+          "didDrop:",
+          monitor.didDrop()
+        );
+        console.log("[FreePlacementArea] Monitor state:", {
+          isOver: monitor.isOver(),
+          canDrop: monitor.canDrop(),
+          getDifferenceFromInitialOffset:
+            monitor.getDifferenceFromInitialOffset(),
+          getClientOffset: monitor.getClientOffset(),
+        });
 
         const offset = monitor.getClientOffset();
         const areaRect = areaRef.current?.getBoundingClientRect();
@@ -84,7 +95,14 @@ const FreePlacementArea = ({
   };
 
   return (
-    <div ref={combinedRef} className={`relative ${className}`}>
+    <div
+      ref={combinedRef}
+      className="free-placement-area relative w-full h-full bg-green-100 rounded-lg overflow-hidden"
+      style={{
+        minHeight: "200px",
+        border: "2px dashed #ccc",
+      }}
+    >
       {/* fieldCardsを全部表示 */}
       {fieldCards.map((card) => (
         <DraggableCard
