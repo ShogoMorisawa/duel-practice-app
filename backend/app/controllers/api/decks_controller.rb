@@ -5,6 +5,11 @@ module Api
       render json: decks
     end
 
+    def show
+      deck = Deck.find(params[:id])
+      render json: deck
+    end
+
     def create
       deck = Deck.new(deck_params)
       if deck.save
@@ -26,7 +31,10 @@ module Api
     private
 
     def deck_params
-      params.require(:deck).permit(:name)
+      params.require(:deck).permit(
+        :name,
+        cards: [:name, :imageUrl]
+      )
     end
   end
 end
