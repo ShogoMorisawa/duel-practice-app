@@ -153,24 +153,10 @@ function PlayDeck() {
 
   // 1. デッキデータ取得 Effect
   useEffect(() => {
-    dispatch({ type: ACTIONS.SET_LOADING, payload: true });
-    axios
-      .get(`http://localhost:3000/api/decks/${deckId}`)
-      .then((res) => {
-        // APIレスポンスに cards 配列が含まれているか確認
-        if (res.data && Array.isArray(res.data.cards)) {
-          dispatch({ type: ACTIONS.SET_DECK_INFO, payload: res.data });
-        } else {
-          console.error(
-            "API response is missing or has invalid 'cards' array:",
-            res.data
-          );
-          // エラー状態にするか、空のデッキとして扱うなどの処理
-          dispatch({
-            type: ACTIONS.SET_DECK_INFO,
-            payload: { ...res.data, cards: [] },
-          });
-        }
+    const fetchDeck = async () => {
+      try {
+        const response = await api.get(`/api/decks/${deckId}`);
+        dispatch({ type: ACTIONS.SET_DECK_INFO, payload: response.data });
         dispatch({ type: ACTIONS.SET_LOADING, payload: false });
       })
       .catch((err) => {

@@ -31,7 +31,14 @@ module Api
     private
 
     def deck_params
+<<<<<<< Updated upstream
       params.require(:deck).permit(:name, cards: [])
+=======
+      params.require(:deck).permit(
+        :name,
+        cards: [:name, :imageUrl]
+      )
+>>>>>>> Stashed changes
     end
   end
 end

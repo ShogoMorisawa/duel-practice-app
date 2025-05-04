@@ -1,10 +1,10 @@
 import React, { useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api, API_BASE_URL, fixUrl } from "../utils/api";
 
 const initialState = {
   name: "",
-  cards: Array(40).fill(null),
+  cards: Array(40).fill({ name: "", imageUrl: null }),
   isSubmitting: false,
   error: null,
 };
@@ -13,10 +13,11 @@ function deckFormReducer(state, action) {
   switch (action.type) {
     case "SET_NAME":
       return { ...state, name: action.payload };
-    case "SET_CARD":
+    case "SET_CARD": {
       const newCards = [...state.cards];
       newCards[action.index] = action.payload;
       return { ...state, cards: newCards };
+    }
     case "SUBMIT_START":
       return { ...state, isSubmitting: true, error: null };
     case "SUBMIT_SUCCESS":
@@ -33,22 +34,124 @@ const NewDeckForm = ({ onDeckCreated }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const navigate = useNavigate();
 
-  const handleCardDrop = (e, index) => {
+  const handleCardDrop = async (e, index) => {
     e.preventDefault();
     const url = e.dataTransfer.getData("text/uri-list");
 
-    if (url && url.startsWith("https://")) {
-      dispatch({ type: "SET_CARD", index, payload: url });
+    // 既存の画像URLがドラッグされた場合
+    if (url && url.startsWith("http")) {
+      dispatch({
+        type: "SET_CARD",
+        index,
+        payload: { name: "", imageUrl: url },
+      });
       return;
     }
 
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        dispatch({ type: "SET_CARD", index, payload: reader.result });
-      };
-      reader.readAsDataURL(file);
+      // まずローカルでプレビューを表示
+      const localUrl = URL.createObjectURL(file);
+      dispatch({
+        type: "SET_CARD",
+        index,
+        payload: { name: file.name, imageUrl: localUrl },
+      });
+
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const response = await api.post("/api/uploads", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        // シンプルにURLを処理
+        let imageUrl = response.data.imageUrl;
+
+        // URLの修正（古いIPアドレスの置換）
+        imageUrl = fixUrl(imageUrl);
+
+        // もし相対URLなら絶対URLに変換
+        if (imageUrl && imageUrl.startsWith("/")) {
+          imageUrl = `${API_BASE_URL}${imageUrl}`;
+          console.log("相対URLを絶対URLに変換:", imageUrl);
+        }
+
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: { name: file.name, imageUrl: imageUrl },
+        });
+
+        // ローカルURLを解放
+        URL.revokeObjectURL(localUrl);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        dispatch({
+          type: "SUBMIT_ERROR",
+          payload: "画像のアップロードに失敗しました",
+        });
+      }
+    }
+  };
+
+  const handleCardDragStart = (e, card) => {
+    if (card.imageUrl) {
+      e.dataTransfer.setData("text/uri-list", card.imageUrl);
+    }
+  };
+
+  const handleFileChange = async (e, index) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // まずローカルでプレビューを表示
+    const localUrl = URL.createObjectURL(file);
+    dispatch({
+      type: "SET_CARD",
+      index,
+      payload: { name: file.name, imageUrl: localUrl },
+    });
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await api.post("/api/uploads", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      // シンプルにURLを処理
+      let imageUrl = response.data.imageUrl;
+
+      // URLの修正（古いIPアドレスの置換）
+      imageUrl = fixUrl(imageUrl);
+
+      // もし相対URLなら絶対URLに変換
+      if (imageUrl && imageUrl.startsWith("/")) {
+        imageUrl = `${API_BASE_URL}${imageUrl}`;
+        console.log("相対URLを絶対URLに変換:", imageUrl);
+      }
+
+      dispatch({
+        type: "SET_CARD",
+        index,
+        payload: { name: file.name, imageUrl: imageUrl },
+      });
+
+      // ローカルURLを解放
+      URL.revokeObjectURL(localUrl);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      dispatch({
+        type: "SUBMIT_ERROR",
+        payload: "画像のアップロードに失敗しました",
+      });
     }
   };
 
@@ -57,9 +160,11 @@ const NewDeckForm = ({ onDeckCreated }) => {
     dispatch({ type: "SUBMIT_START" });
 
     try {
-      await axios.post("http://localhost:3000/api/decks", {
-        name: state.name,
-        cards: state.cards.filter((card) => card !== null),
+      await api.post("/decks", {
+        deck: {
+          name: state.name,
+          cards: state.cards,
+        },
       });
       dispatch({ type: "SUBMIT_SUCCESS" });
       if (onDeckCreated) onDeckCreated();
@@ -79,22 +184,61 @@ const NewDeckForm = ({ onDeckCreated }) => {
         {pageCards.map((card, i) => {
           const index = pageStartIndex + i;
           return (
-            <div
+            <label
               key={index}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleCardDrop(e, index)}
-              className="w-full h-32 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center bg-gray-50 relative"
+              onDragStart={(e) => handleCardDragStart(e, card)}
+              draggable={!!card.imageUrl}
+              className="w-full h-32 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center bg-gray-50 relative cursor-pointer"
             >
-              {card ? (
-                <img
-                  src={card}
-                  alt={`カード${index + 1}`}
-                  className="w-full h-full object-cover rounded-md"
-                />
+              {card.imageUrl ? (
+                <div className="w-full h-full relative">
+                  <img
+                    src={card.imageUrl}
+                    alt={card.name || `カード${index + 1}`}
+                    className="w-full h-full object-cover rounded-md"
+                    onError={(e) => {
+                      console.error(
+                        "画像の読み込みに失敗しました:",
+                        card.imageUrl
+                      );
+
+                      // URL修正を試みる
+                      let fixedUrl = fixUrl(card.imageUrl);
+
+                      // 相対パスなら絶対URLに変換して再試行
+                      if (fixedUrl && fixedUrl.startsWith("/")) {
+                        const newUrl = `${API_BASE_URL}${fixedUrl}`;
+                        console.log("絶対URLに変換して再試行:", newUrl);
+                        e.target.src = newUrl;
+                        return;
+                      } else if (fixedUrl !== card.imageUrl) {
+                        // URLが修正された場合は新しいURLで試す
+                        console.log("URLを修正して再試行:", fixedUrl);
+                        e.target.src = fixedUrl;
+                        return;
+                      }
+
+                      e.target.onerror = null;
+                      e.target.style.display = "none";
+                    }}
+                  />
+                </div>
               ) : (
-                <span className="text-gray-400 text-sm">ここにドロップ</span>
+                <span className="text-gray-400 text-sm whitespace-pre-line text-center">
+                  ここにドロップ
+                  <br />
+                  またはクリック
+                </span>
               )}
-            </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, index)}
+              />
+            </label>
           );
         })}
       </div>
@@ -138,7 +282,6 @@ const NewDeckForm = ({ onDeckCreated }) => {
 
           {renderCardInputs()}
 
-          {/* ページネーション */}
           <div className="flex justify-between items-center mt-6">
             <button
               type="button"
