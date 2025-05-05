@@ -10,11 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-<<<<<<< HEAD
-ActiveRecord::Schema[7.2].define(version: 2025_04_22_144323) do
-=======
 ActiveRecord::Schema[7.2].define(version: 2025_05_03_153843) do
->>>>>>> b6bf80d (feat: デッキ作成画面に画像アップロード機能を実装)
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
