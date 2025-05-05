@@ -1,10 +1,10 @@
 import { useEffect, useCallback, useReducer, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TouchBackend } from "react-dnd-touch-backend";
 import { isMobile } from "react-device-detect";
-import { api } from "../utils/api";
+import { api, apiEndpoints, handleApiError } from "../utils/api";
 import Card from "../components/Card";
 import FreePlacementArea from "../components/FreePlacementArea";
 import HandArea from "../components/HandArea";
@@ -28,6 +28,7 @@ const ACTIONS = {
   DRAW_CARD: "draw_card",
   SHUFFLE_DECK: "shuffle_deck",
   SET_LOADING: "set_loading",
+  SET_ERROR: "set_error",
 };
 
 // 初期状態
@@ -35,6 +36,7 @@ const initialState = {
   deckInfo: null, // デッキ情報 (name, cards配列など)
   cards: [], // すべてのカード（zone プロパティで区分）
   loading: true, // ローディング状態
+  error: null, // エラー状態を追加
 };
 
 // リデューサー関数を定義
@@ -48,6 +50,9 @@ function reducer(state, action) {
 
     case ACTIONS.SET_DECK_INFO:
       return { ...state, deckInfo: action.payload };
+
+    case ACTIONS.SET_ERROR:
+      return { ...state, error: action.payload, loading: false };
 
     case ACTIONS.ADD_CARD:
       console.log("[Reducer] Adding card:", action.payload);
@@ -162,7 +167,11 @@ function reducer(state, action) {
 // --- メインコンポーネント ---
 function PlayDeck() {
   const { deckId } = useParams();
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const navigate = useNavigate();
+  const [state, dispatch] = useReducer(reducer, {
+    ...initialState,
+    error: null // エラー状態を追加
+  });
   const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
   const [activeMode, setActiveMode] = useState(null); // アクティブなモードを一元管理
@@ -185,18 +194,25 @@ function PlayDeck() {
   );
 
   // 1. デッキデータ取得 Effect
+  const fetchDeck = async () => {
+    dispatch({ type: ACTIONS.SET_LOADING, payload: true });
+    dispatch({ type: ACTIONS.SET_ERROR, payload: null });
+    
+    try {
+      const response = await api.get(apiEndpoints.decks.getOne(deckId));
+      dispatch({ type: ACTIONS.SET_DECK_INFO, payload: response.data });
+      dispatch({ type: ACTIONS.SET_LOADING, payload: false });
+    } catch (error) {
+      console.error("Error fetching deck:", error);
+      const standardizedError = handleApiError(error, { 
+        context: 'デッキデータ取得',
+        onAuthError: () => navigate('/') // 認証エラー時はトップページへ
+      });
+      dispatch({ type: ACTIONS.SET_ERROR, payload: standardizedError });
+    }
+  };
+  
   useEffect(() => {
-    const fetchDeck = async () => {
-      try {
-        const response = await api.get(`/decks/${deckId}`);
-        dispatch({ type: ACTIONS.SET_DECK_INFO, payload: response.data });
-        dispatch({ type: ACTIONS.SET_LOADING, payload: false });
-      } catch (error) {
-        console.error("Error fetching deck:", error);
-        dispatch({ type: ACTIONS.SET_LOADING, payload: false });
-      }
-    };
-
     fetchDeck();
   }, [deckId]);
 
@@ -441,13 +457,52 @@ function PlayDeck() {
   );
 
   // --- レンダリング ---
-
-  if (state.loading)
-    return <div className="p-4 text-center">デッキデータをロード中...</div>;
+  
+  if (state.loading && !state.deckInfo)
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <p className="mt-6 text-lg text-gray-600">デッキデータをロード中...</p>
+      </div>
+    );
+    
+  if (state.error)
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-100 p-4">
+        <div className="bg-red-100 border border-red-300 rounded-md p-6 text-red-700 max-w-lg w-full">
+          <h2 className="text-xl font-bold mb-3">エラーが発生しました</h2>
+          <p className="mb-4">{state.error.message}</p>
+          <div className="flex gap-4">
+            <button 
+              onClick={fetchDeck}
+              className="px-4 py-2 bg-red-100 border border-red-500 rounded-md hover:bg-red-200"
+            >
+              再試行
+            </button>
+            <button 
+              onClick={() => navigate('/')}
+              className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+            >
+              戻る
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+    
   if (!state.deckInfo)
     return (
-      <div className="p-4 text-center text-red-600">
-        デッキ情報の読み込みに失敗しました。
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+        <div className="bg-yellow-100 border border-yellow-300 rounded-md p-6 text-yellow-700 max-w-lg">
+          <h2 className="text-xl font-bold mb-2">デッキ情報がありません</h2>
+          <p>デッキデータの読み込みに失敗しました。</p>
+          <button 
+            onClick={() => navigate('/')}
+            className="mt-4 px-4 py-2 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+          >
+            デッキ一覧に戻る
+          </button>
+        </div>
       </div>
     );
 

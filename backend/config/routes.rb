@@ -2,7 +2,6 @@ Rails.application.routes.draw do
 
   post "/login", to: "auth#login"
   resources :users, only: [:create]  # 登録用
-  resources :decks, only: [:index, :create, :destroy, :show]
 
   namespace :api do
     resources :decks, only: [:index, :show, :create, :destroy]

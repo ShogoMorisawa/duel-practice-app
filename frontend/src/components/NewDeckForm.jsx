@@ -1,6 +1,6 @@
 import React, { useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../utils/api";
+import { api, getAbsoluteImageUrl, apiEndpoints, handleApiError } from "../utils/api";
 
 const initialState = {
   name: "",
@@ -62,7 +62,7 @@ const NewDeckForm = ({ onDeckCreated }) => {
         const formData = new FormData();
         formData.append("image", file);
 
-        const response = await api.post("/api/uploads", formData, {
+        const response = await api.post(apiEndpoints.uploads.create(), formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
@@ -71,12 +71,8 @@ const NewDeckForm = ({ onDeckCreated }) => {
         // シンプルにURLを処理
         let imageUrl = response.data.imageUrl;
         
-        // もし相対URLなら絶対URLに変換
-        if (imageUrl && imageUrl.startsWith('/')) {
-          imageUrl = `http://192.168.1.21:3000${imageUrl}`;
-          console.log("相対URLを絶対URLに変換:", imageUrl);
-        }
-
+        // URLを絶対パスに変換（必要な場合）
+        imageUrl = getAbsoluteImageUrl(imageUrl);
         console.log("使用するURL:", imageUrl);
         
         dispatch({
@@ -88,11 +84,13 @@ const NewDeckForm = ({ onDeckCreated }) => {
         // ローカルURLを解放
         URL.revokeObjectURL(localUrl);
       } catch (error) {
-        console.error("Error uploading image:", error);
+        const standardizedError = handleApiError(error, { context: '画像アップロード' });
         dispatch({
           type: "SUBMIT_ERROR",
-          payload: "画像のアップロードに失敗しました",
+          payload: standardizedError.message,
         });
+        // エラー時にもローカルURLを解放
+        URL.revokeObjectURL(localUrl);
       }
     }
   };
@@ -119,7 +117,7 @@ const NewDeckForm = ({ onDeckCreated }) => {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await api.post("/api/uploads", formData, {
+      const response = await api.post(apiEndpoints.uploads.create(), formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -128,12 +126,8 @@ const NewDeckForm = ({ onDeckCreated }) => {
       // シンプルにURLを処理
       let imageUrl = response.data.imageUrl;
       
-      // もし相対URLなら絶対URLに変換
-      if (imageUrl && imageUrl.startsWith('/')) {
-        imageUrl = `http://192.168.1.21:3000${imageUrl}`;
-        console.log("相対URLを絶対URLに変換:", imageUrl);
-      }
-
+      // URLを絶対パスに変換（必要な場合）
+      imageUrl = getAbsoluteImageUrl(imageUrl);
       console.log("使用するURL:", imageUrl);
       
       dispatch({
@@ -145,11 +139,13 @@ const NewDeckForm = ({ onDeckCreated }) => {
       // ローカルURLを解放
       URL.revokeObjectURL(localUrl);
     } catch (error) {
-      console.error("Error uploading image:", error);
+      const standardizedError = handleApiError(error, { context: '画像アップロード' });
       dispatch({
         type: "SUBMIT_ERROR",
-        payload: "画像のアップロードに失敗しました",
+        payload: standardizedError.message,
       });
+      // エラー時にもローカルURLを解放
+      URL.revokeObjectURL(localUrl);
     }
   };
 
@@ -158,7 +154,7 @@ const NewDeckForm = ({ onDeckCreated }) => {
     dispatch({ type: "SUBMIT_START" });
 
     try {
-      await api.post("/decks", {
+      await api.post(apiEndpoints.decks.create(), {
         deck: {
           name: state.name,
           cards: state.cards,
@@ -168,8 +164,8 @@ const NewDeckForm = ({ onDeckCreated }) => {
       if (onDeckCreated) onDeckCreated();
       navigate("/");
     } catch (error) {
-      console.error("Error creating deck:", error);
-      dispatch({ type: "SUBMIT_ERROR", payload: error.message });
+      const standardizedError = handleApiError(error, { context: 'デッキ作成' });
+      dispatch({ type: "SUBMIT_ERROR", payload: standardizedError.message });
     }
   };
 
@@ -200,8 +196,8 @@ const NewDeckForm = ({ onDeckCreated }) => {
                       console.error("画像の読み込みに失敗しました:", card.imageUrl);
                       
                       // 相対パスなら絶対URLに変換して再試行
-                      if (card.imageUrl && card.imageUrl.startsWith('/')) {
-                        const newUrl = `http://192.168.1.21:3000${card.imageUrl}`;
+                      if (card.imageUrl && !card.imageUrl.startsWith('http')) {
+                        const newUrl = getAbsoluteImageUrl(card.imageUrl);
                         console.log("絶対URLに変換して再試行:", newUrl);
                         e.target.src = newUrl;
                         return;

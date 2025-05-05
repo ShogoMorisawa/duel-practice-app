@@ -32,14 +32,14 @@ Rails.application.configure do
   config.active_storage.service = :local
 
   # IPアドレスでのアクセスを許可
-  config.hosts << "192.168.1.21"
+  config.hosts << "192.168.43.95"
   # セキュリティ制限を緩和（開発環境のみ）
   config.hosts.clear
 
   # ActiveStorageのホスト設定 - シンプルに統一
   config.active_storage.service = :local
-  config.action_controller.default_url_options = { host: "192.168.1.21", port: 3000 }
-  Rails.application.routes.default_url_options = { host: "192.168.1.21", port: 3000, protocol: 'http' }
+  config.action_controller.default_url_options = { host: "192.168.43.95", port: 3000 }
+  Rails.application.routes.default_url_options = { host: "192.168.43.95", port: 3000, protocol: 'http' }
 
   # ActiveStorageの設定
   config.active_storage.service_urls_expire_in = nil # 有効期限を無効化
@@ -59,7 +59,7 @@ Rails.application.configure do
   # caching is enabled.
   config.action_mailer.perform_caching = false
 
-  config.action_mailer.default_url_options = { host: "192.168.1.21", port: 3000 }
+  config.action_mailer.default_url_options = { host: "192.168.43.95", port: 3000 }
 
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log
