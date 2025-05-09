@@ -32,6 +32,7 @@ Rails.application.routes.draw do
         get 'image', to: 'decks#card_image', on: :member
       end
     end
+
     post 'uploads', to: 'uploads#create'
     
     # デッキIDなしでカード画像にアクセスするための直接ルート

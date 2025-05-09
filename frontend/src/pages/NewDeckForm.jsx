@@ -187,6 +187,7 @@ const NewDeckForm = () => {
     const localUrl = URL.createObjectURL(file);
 
     // 画像ファイルが選択されたら、一時的にローカルURLを表示
+
     dispatch({
       type: "SET_CARD",
       index,
@@ -280,7 +281,6 @@ const NewDeckForm = () => {
       // 新しいデッキIDを保存
       const newDeckId = response.data.id;
       setDeckId(newDeckId);
-
       dispatch({ type: "SUBMIT_SUCCESS" });
       navigate("/");
     } catch (error) {

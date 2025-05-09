@@ -105,6 +105,7 @@ export const getAbsoluteImageUrl = (relativeUrl) => {
   if (relativeUrl.startsWith("http")) return relativeUrl;
   if (relativeUrl.startsWith("blob:")) return relativeUrl; // blob URLはそのまま返す
 
+
   // 相対パスの場合、APIのホストと結合
   const apiBase = API_BASE_URL.replace(/\/+$/, ""); // 末尾のスラッシュを削除
   const path = relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`;
