@@ -1,9 +1,32 @@
 Rails.application.routes.draw do
+  # カスタムパスとコントローラーでDeviseを設定
+  devise_for :users,
+           path: '',
+           path_names: {
+             sign_in: 'login',
+             sign_out: 'logout',
+             registration: 'signup'
+           },
+           controllers: {
+             sessions: 'users/sessions',
+             registrations: 'users/registrations'
+           }
 
-  post "/login", to: "auth#login"
-  resources :users, only: [:create]  # 登録用
+  # 既存のログイン・ユーザー作成ルートはDeviseに置き換えるため不要
+  # post "/login", to: "auth#login"
+  # resources :users, only: [:create]  # 登録用
 
   namespace :api do
+    # 認証関連のルート
+    namespace :auth do
+      devise_scope :user do
+        post 'login', to: 'sessions#create'
+        delete 'logout', to: 'sessions#destroy'
+        post 'register', to: 'registrations#create'
+      end
+    end
+
+    # 既存のAPIルート
     resources :decks, only: [:index, :show, :create, :destroy]
     post 'uploads', to: 'uploads#create'
   end

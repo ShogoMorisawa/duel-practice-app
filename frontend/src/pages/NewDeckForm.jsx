@@ -1,6 +1,12 @@
-import React, { useReducer, useState } from "react";
+import React, { useReducer, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, getAbsoluteImageUrl, apiEndpoints, handleApiError } from "../utils/api";
+import {
+  api,
+  getAbsoluteImageUrl,
+  apiEndpoints,
+  handleApiError,
+} from "../utils/api";
+import { useAuth } from "../contexts/AuthContext";
 
 const initialState = {
   name: "",
@@ -29,10 +35,17 @@ function deckFormReducer(state, action) {
   }
 }
 
-const NewDeckForm = ({ onDeckCreated }) => {
+const NewDeckForm = () => {
   const [state, dispatch] = useReducer(deckFormReducer, initialState);
   const [currentPage, setCurrentPage] = useState(0);
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleCardDrop = async (e, index) => {
     e.preventDefault();
@@ -62,19 +75,23 @@ const NewDeckForm = ({ onDeckCreated }) => {
         const formData = new FormData();
         formData.append("image", file);
 
-        const response = await api.post(apiEndpoints.uploads.create(), formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
+        const response = await api.post(
+          apiEndpoints.uploads.create(),
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
 
         // シンプルにURLを処理
         let imageUrl = response.data.imageUrl;
-        
+
         // URLを絶対パスに変換（必要な場合）
         imageUrl = getAbsoluteImageUrl(imageUrl);
         console.log("使用するURL:", imageUrl);
-        
+
         dispatch({
           type: "SET_CARD",
           index,
@@ -84,7 +101,9 @@ const NewDeckForm = ({ onDeckCreated }) => {
         // ローカルURLを解放
         URL.revokeObjectURL(localUrl);
       } catch (error) {
-        const standardizedError = handleApiError(error, { context: '画像アップロード' });
+        const standardizedError = handleApiError(error, {
+          context: "画像アップロード",
+        });
         dispatch({
           type: "SUBMIT_ERROR",
           payload: standardizedError.message,
@@ -125,11 +144,11 @@ const NewDeckForm = ({ onDeckCreated }) => {
 
       // シンプルにURLを処理
       let imageUrl = response.data.imageUrl;
-      
+
       // URLを絶対パスに変換（必要な場合）
       imageUrl = getAbsoluteImageUrl(imageUrl);
       console.log("使用するURL:", imageUrl);
-      
+
       dispatch({
         type: "SET_CARD",
         index,
@@ -139,7 +158,9 @@ const NewDeckForm = ({ onDeckCreated }) => {
       // ローカルURLを解放
       URL.revokeObjectURL(localUrl);
     } catch (error) {
-      const standardizedError = handleApiError(error, { context: '画像アップロード' });
+      const standardizedError = handleApiError(error, {
+        context: "画像アップロード",
+      });
       dispatch({
         type: "SUBMIT_ERROR",
         payload: standardizedError.message,
@@ -161,10 +182,11 @@ const NewDeckForm = ({ onDeckCreated }) => {
         },
       });
       dispatch({ type: "SUBMIT_SUCCESS" });
-      if (onDeckCreated) onDeckCreated();
       navigate("/");
     } catch (error) {
-      const standardizedError = handleApiError(error, { context: 'デッキ作成' });
+      const standardizedError = handleApiError(error, {
+        context: "デッキ作成",
+      });
       dispatch({ type: "SUBMIT_ERROR", payload: standardizedError.message });
     }
   };
@@ -193,16 +215,19 @@ const NewDeckForm = ({ onDeckCreated }) => {
                     alt={card.name || `カード${index + 1}`}
                     className="w-full h-full object-cover rounded-md"
                     onError={(e) => {
-                      console.error("画像の読み込みに失敗しました:", card.imageUrl);
-                      
+                      console.error(
+                        "画像の読み込みに失敗しました:",
+                        card.imageUrl
+                      );
+
                       // 相対パスなら絶対URLに変換して再試行
-                      if (card.imageUrl && !card.imageUrl.startsWith('http')) {
+                      if (card.imageUrl && !card.imageUrl.startsWith("http")) {
                         const newUrl = getAbsoluteImageUrl(card.imageUrl);
                         console.log("絶対URLに変換して再試行:", newUrl);
                         e.target.src = newUrl;
                         return;
                       }
-                      
+
                       e.target.onerror = null;
                       e.target.style.display = "none";
                     }}
@@ -230,94 +255,108 @@ const NewDeckForm = ({ onDeckCreated }) => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white rounded-lg shadow-md p-6"
-      >
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b-2 border-blue-500">
-          デッキ作成
-        </h2>
-
-        <div className="mb-6">
-          <label
-            htmlFor="deck-name"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            デッキ名
-          </label>
-          <input
-            id="deck-name"
-            type="text"
-            placeholder="デッキ名を入力してください"
-            value={state.name}
-            onChange={(e) =>
-              dispatch({ type: "SET_NAME", payload: e.target.value })
-            }
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
-            required
-          />
-        </div>
-
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-700 mb-3">
-            カード登録（40枚）
-          </h3>
-
-          {renderCardInputs()}
-
-          <div className="flex justify-between items-center mt-6">
-            <button
-              type="button"
-              disabled={currentPage === 0}
-              onClick={() => setCurrentPage(currentPage - 1)}
-              className={`px-4 py-2 rounded ${
-                currentPage === 0
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-blue-500 text-white hover:bg-blue-600"
-              }`}
-            >
-              前へ
-            </button>
-
-            <div className="text-gray-700 font-medium">
-              ページ {currentPage + 1} / 5
-            </div>
-
-            <button
-              type="button"
-              disabled={currentPage === 4}
-              onClick={() => setCurrentPage(currentPage + 1)}
-              className={`px-4 py-2 rounded ${
-                currentPage === 4
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-blue-500 text-white hover:bg-blue-600"
-              }`}
-            >
-              次へ
-            </button>
-          </div>
-        </div>
-
-        {state.error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-            エラー: {state.error}
-          </div>
-        )}
-
-        <div className="flex justify-center mt-6">
+      {!isAuthenticated ? (
+        <div className="text-center py-8">
+          <p className="text-gray-600 mb-4">
+            デッキを作成するにはログインが必要です
+          </p>
           <button
-            type="submit"
-            className={`px-6 py-3 rounded-md text-white font-medium ${
-              state.isSubmitting || !state.name.trim()
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            }`}
-            disabled={state.isSubmitting || !state.name.trim()}
+            onClick={() => navigate("/login")}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
           >
-            {state.isSubmitting ? "作成中..." : "デッキを作成"}
+            ログインする
           </button>
         </div>
-      </form>
+      ) : (
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-lg shadow-md p-6"
+        >
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b-2 border-blue-500">
+            デッキ作成
+          </h2>
+
+          <div className="mb-6">
+            <label
+              htmlFor="deck-name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              デッキ名
+            </label>
+            <input
+              id="deck-name"
+              type="text"
+              placeholder="デッキ名を入力してください"
+              value={state.name}
+              onChange={(e) =>
+                dispatch({ type: "SET_NAME", payload: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+              required
+            />
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-700 mb-3">
+              カード登録（40枚）
+            </h3>
+
+            {renderCardInputs()}
+
+            <div className="flex justify-between items-center mt-6">
+              <button
+                type="button"
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                className={`px-4 py-2 rounded ${
+                  currentPage === 0
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-blue-500 text-white hover:bg-blue-600"
+                }`}
+              >
+                前へ
+              </button>
+
+              <div className="text-gray-700 font-medium">
+                ページ {currentPage + 1} / 5
+              </div>
+
+              <button
+                type="button"
+                disabled={currentPage === 4}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                className={`px-4 py-2 rounded ${
+                  currentPage === 4
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-blue-500 text-white hover:bg-blue-600"
+                }`}
+              >
+                次へ
+              </button>
+            </div>
+          </div>
+
+          {state.error && (
+            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+              エラー: {state.error}
+            </div>
+          )}
+
+          <div className="flex justify-center mt-6">
+            <button
+              type="submit"
+              className={`px-6 py-3 rounded-md text-white font-medium ${
+                state.isSubmitting || !state.name.trim()
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              }`}
+              disabled={state.isSubmitting || !state.name.trim()}
+            >
+              {state.isSubmitting ? "作成中..." : "デッキを作成"}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 };
