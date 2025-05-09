@@ -59,3 +59,7 @@ gem 'rack-cors'
 
 # JWTの管理
 gem 'jwt'
+
+# ユーザー認証
+gem 'devise'
+gem 'devise-jwt'

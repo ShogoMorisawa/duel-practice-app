@@ -1,7 +1,11 @@
 module Api
   class DecksController < ApplicationController
     def index
-      decks = Deck.all
+      if current_user
+        decks = Deck.where(user_id: current_user.id)
+      else
+        decks = Deck.where(user_id: nil) # ゲスト用
+      end
       render json: decks
     end
 
@@ -12,6 +16,7 @@ module Api
 
     def create
       deck = Deck.new(deck_params)
+      deck.user = current_user if current_user
       if deck.save
         render json: deck, status: :created
       else
