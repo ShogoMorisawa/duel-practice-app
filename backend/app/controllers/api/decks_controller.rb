@@ -1,19 +1,66 @@
 module Api
   class DecksController < ApplicationController
     def index
-      decks = Deck.all
+      if current_user
+        decks = Deck.where(user_id: current_user.id)
+      else
+        decks = Deck.where(user_id: nil) # ゲスト用
+      end
       render json: decks
     end
 
     def show
       deck = Deck.find(params[:id])
-      render json: deck
+      
+      # カードの画像URLを含めてレスポンスを返す
+      cards_with_image_urls = deck.cards.map do |card|
+        if card.is_a?(Hash)
+          # JSONデータ内のカード情報（既存の実装）
+          card
+        else
+          # ActiveRecordのカードオブジェクト（新しい実装）
+          card.as_json.merge(image_url: card.image_url)
+        end
+      end
+      
+      render json: {
+        deck: deck,
+        cards: cards_with_image_urls
+      }
+    end
+
+    def card_image
+      card = Card.find(params[:card_id])
+      if card.image.attached?
+        redirect_to url_for(card.image)
+      else
+        render json: { error: "画像が添付されていません" }, status: :not_found
+      end
     end
 
     def create
       deck = Deck.new(deck_params)
+      deck.user = current_user if current_user
+      
+      # 一時保存されたカードの処理
+      if params[:deck][:cards].present?
+        params[:deck][:cards].each do |card_data|
+          # カードIDがある場合は、一時カードをデッキに紐付ける
+          if card_data[:id].present?
+            temp_card = Card.find_by(id: card_data[:id])
+            if temp_card && temp_card.deck_id.nil?
+              temp_card.update(deck: deck)
+            end
+          end
+        end
+      end
+      
       if deck.save
-        render json: deck, status: :created
+        render json: { 
+          id: deck.id,
+          name: deck.name,
+          message: "デッキが作成されました" 
+        }, status: :created
       else
         render json: { errors: deck.errors.full_messages }, status: :unprocessable_entity
       end
@@ -33,7 +80,7 @@ module Api
     def deck_params
       params.require(:deck).permit(
         :name,
-        cards: [:name, :imageUrl]
+        cards: [:id, :name, :imageUrl]
       )
     end
   end

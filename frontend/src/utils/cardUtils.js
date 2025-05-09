@@ -13,7 +13,9 @@
  * @param {number} params.x X座標 (fieldゾーンの場合のみ使用)
  * @param {number} params.y Y座標 (fieldゾーンの場合のみ使用)
  * @param {number} params.rotation 回転角度
- * @param {string|null} params.imageUrl カード画像のURL
+ * @param {string|null} params.imageUrl カード画像のURL（レガシーサポート用）
+ * @param {string|null} params.deckId カードが所属するデッキのID（画像URL生成用）
+ * @param {string|null} params.cardId カードのAPIエンドポイント用ID
  * @returns {Object} カードオブジェクト
  */
 export const createCard = ({
@@ -26,6 +28,8 @@ export const createCard = ({
   y = 0,
   rotation = 0,
   imageUrl = null,
+  deckId = null,
+  cardId = null,
 }) => {
   console.log("[createCard] パラメータ:", {
     id,
@@ -37,6 +41,8 @@ export const createCard = ({
     y,
     rotation,
     imageUrl,
+    deckId,
+    cardId,
   });
 
   const card = {
@@ -50,6 +56,8 @@ export const createCard = ({
     ...(zone === "field" ? { x, y } : {}),
     zone,
     imageUrl,
+    deckId,
+    cardId,
   };
 
   console.log("[createCard] 作成されたカード:", card);

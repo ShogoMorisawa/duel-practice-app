@@ -16,7 +16,9 @@ import Card from "./Card";
  * @param {number} props.rotation 回転角度
  * @param {function} props.onMove 移動時のコールバック
  * @param {function} props.onClick クリック時のコールバック
- * @param {string} props.imageUrl カードの画像URL
+ * @param {string} props.imageUrl カードの画像URL (レガシーサポート用)
+ * @param {string} props.deckId カードが所属するデッキのID
+ * @param {string} props.cardId カードのID（APIエンドポイント用）
  */
 const DraggableCard = ({
   id,
@@ -31,6 +33,8 @@ const DraggableCard = ({
   onMove,
   onClick,
   imageUrl,
+  deckId,
+  cardId,
 }) => {
   console.log("[DraggableCard] Props:", {
     id,
@@ -43,6 +47,8 @@ const DraggableCard = ({
     y,
     rotation,
     imageUrl,
+    deckId,
+    cardId,
   });
 
   // zoneがあればそれを使い、なければtypeを使う移行期コード
@@ -85,6 +91,8 @@ const DraggableCard = ({
           zone: actualZone, // 新しいプロパティ
           rotation,
           imageUrl, // imageUrlを追加
+          deckId,
+          cardId,
         };
       },
       end: (item, monitor) => {
@@ -133,6 +141,8 @@ const DraggableCard = ({
       onMove,
       actualZone,
       imageUrl,
+      deckId,
+      cardId,
     ]
   );
 
@@ -226,6 +236,8 @@ const DraggableCard = ({
         onClick={handleCardClick}
         draggable={false}
         imageUrl={imageUrl}
+        deckId={deckId}
+        cardId={cardId}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect, useReducer } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { api, apiEndpoints, handleApiError } from "../utils/api";
+import { useAuth } from "../contexts/AuthContext";
 
 // アクションタイプを定義
 const ACTIONS = {
@@ -45,6 +46,8 @@ function reducer(state, action) {
 
 const DeckList = () => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   // デッキ一覧の取得
   const fetchDecks = async () => {
@@ -53,7 +56,9 @@ const DeckList = () => {
       const res = await api.get(apiEndpoints.decks.getAll());
       dispatch({ type: ACTIONS.SET_DECKS, payload: res.data });
     } catch (error) {
-      const standardizedError = handleApiError(error, { context: 'デッキ一覧取得' });
+      const standardizedError = handleApiError(error, {
+        context: "デッキ一覧取得",
+      });
       dispatch({ type: ACTIONS.SET_ERROR, payload: standardizedError });
     }
   };
@@ -69,10 +74,14 @@ const DeckList = () => {
 
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
     try {
-      const res = await api.post(apiEndpoints.decks.create(), { name: state.newDeckName });
+      const res = await api.post(apiEndpoints.decks.create(), {
+        name: state.newDeckName,
+      });
       dispatch({ type: ACTIONS.ADD_DECK, payload: res.data });
     } catch (error) {
-      const standardizedError = handleApiError(error, { context: 'デッキ作成' });
+      const standardizedError = handleApiError(error, {
+        context: "デッキ作成",
+      });
       dispatch({ type: ACTIONS.SET_ERROR, payload: standardizedError });
     }
   };
@@ -81,7 +90,7 @@ const DeckList = () => {
   const handleDelete = async (e, id) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
     try {
       await api.delete(apiEndpoints.decks.delete(id));
@@ -90,7 +99,9 @@ const DeckList = () => {
         payload: state.decks.filter((deck) => deck.id !== id),
       });
     } catch (error) {
-      const standardizedError = handleApiError(error, { context: 'デッキ削除' });
+      const standardizedError = handleApiError(error, {
+        context: "デッキ削除",
+      });
       dispatch({ type: ACTIONS.SET_ERROR, payload: standardizedError });
     }
   };
@@ -107,7 +118,7 @@ const DeckList = () => {
         <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded-md text-red-700">
           <p className="font-medium">エラーが発生しました</p>
           <p>{state.error.message}</p>
-          <button 
+          <button
             onClick={fetchDecks}
             className="mt-2 px-3 py-1 bg-red-100 border border-red-500 rounded-md hover:bg-red-200 text-sm"
           >
@@ -116,33 +127,48 @@ const DeckList = () => {
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="p-6 mb-8 bg-white border rounded-lg shadow-sm"
-      >
-        <input
-          type="text"
-          value={state.newDeckName}
-          onChange={(e) =>
-            dispatch({
-              type: ACTIONS.SET_NEW_DECK_NAME,
-              payload: e.target.value,
-            })
-          }
-          placeholder="新しいデッキ名"
-          className="flex-1 px-4 py-2 mb-2 border border-gray-300 rounded-md sm:mb-0 sm:mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          disabled={state.isLoading}
-        />
-        <button
-          type="submit"
-          className={`flex items-center justify-center px-4 py-2 font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
-            state.isLoading ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-          disabled={state.isLoading || !state.newDeckName.trim()}
+      {/* ログイン済みユーザーのみデッキ作成フォームを表示 */}
+      {isAuthenticated ? (
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 mb-8 bg-white border rounded-lg shadow-sm"
         >
-          {state.isLoading ? "処理中..." : "追加"}
-        </button>
-      </form>
+          <input
+            type="text"
+            value={state.newDeckName}
+            onChange={(e) =>
+              dispatch({
+                type: ACTIONS.SET_NEW_DECK_NAME,
+                payload: e.target.value,
+              })
+            }
+            placeholder="新しいデッキ名"
+            className="flex-1 px-4 py-2 mb-2 border border-gray-300 rounded-md sm:mb-0 sm:mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={state.isLoading}
+          />
+          <button
+            type="submit"
+            className={`flex items-center justify-center px-4 py-2 font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
+              state.isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            disabled={state.isLoading || !state.newDeckName.trim()}
+          >
+            {state.isLoading ? "処理中..." : "追加"}
+          </button>
+        </form>
+      ) : (
+        <div className="p-6 mb-8 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-blue-700 mb-2">
+            デッキを作成するにはログインが必要です
+          </p>
+          <button
+            onClick={() => navigate("/login")}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            ログインする
+          </button>
+        </div>
+      )}
 
       {/* ローディング表示 */}
       {state.isLoading && (
