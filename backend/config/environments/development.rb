@@ -33,16 +33,17 @@ Rails.application.configure do
 
   # IPアドレスでのアクセスを許可
   config.hosts << "192.168.43.95"
+  config.hosts << "192.168.1.21"
   # セキュリティ制限を緩和（開発環境のみ）
   config.hosts.clear
 
-  # ActiveStorageのホスト設定 - シンプルに統一
+  # ActiveStorageのホスト設定 - 動的に設定できるように変更
   config.active_storage.service = :local
-  config.action_controller.default_url_options = { host: "192.168.43.95", port: 3000 }
-  Rails.application.routes.default_url_options = { host: "192.168.43.95", port: 3000, protocol: 'http' }
-
-  # ActiveStorageの設定
-  config.active_storage.service_urls_expire_in = nil # 有効期限を無効化
+  
+  # URL期限切れを無効化
+  config.active_storage.service_urls_expire_in = nil
+  
+  # コンテンツタイプの設定
   config.active_storage.content_types_to_serve_as_binary -= ['image/svg+xml']
   config.active_storage.content_types_allowed_inline += ['image/svg+xml']
   config.active_storage.routes_prefix = '/rails/active_storage'

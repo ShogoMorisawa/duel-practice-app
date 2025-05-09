@@ -2,6 +2,7 @@ import React, { useReducer, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   api,
+  uploadApi,
   getAbsoluteImageUrl,
   apiEndpoints,
   handleApiError,
@@ -41,123 +42,214 @@ const NewDeckForm = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
+  // デッキIDの仮の状態管理（新規作成時は空文字）
+  // eslint-disable-next-line no-unused-vars
+  const [deckId, setDeckId] = useState("");
+
+  // ページ移動前に古いblob URLをクリーンアップするための処理
+  const handlePageChange = (newPage) => {
+    // 現在のページの状態を処理
+    const pageStartIndex = currentPage * 8;
+    const pageCards = state.cards.slice(pageStartIndex, pageStartIndex + 8);
+
+    // 古いblob URLをクリーンアップ
+    pageCards.forEach((card) => {
+      if (card.imageUrl && card.imageUrl.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(card.imageUrl);
+        } catch (e) {
+          console.error("Failed to revoke blob URL:", e);
+        }
+      }
+    });
+
+    setCurrentPage(newPage);
+  };
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
     }
-  }, [isAuthenticated, navigate]);
+
+    // コンポーネントのクリーンアップ時にすべてのblob URLを解放
+    return () => {
+      state.cards.forEach((card) => {
+        if (card.imageUrl && card.imageUrl.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(card.imageUrl);
+          } catch (e) {
+            console.error("Failed to revoke blob URL:", e);
+          }
+        }
+      });
+    };
+  }, [isAuthenticated, navigate, state.cards]);
 
   const handleCardDrop = async (e, index) => {
     e.preventDefault();
-    const url = e.dataTransfer.getData("text/uri-list");
 
-    // 既存の画像URLがドラッグされた場合
-    if (url && url.startsWith("http")) {
-      dispatch({
-        type: "SET_CARD",
-        index,
-        payload: { name: "", imageUrl: url },
-      });
-      return;
-    }
-
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) {
-      // まずローカルでプレビューを表示
-      const localUrl = URL.createObjectURL(file);
-      dispatch({
-        type: "SET_CARD",
-        index,
-        payload: { name: file.name, imageUrl: localUrl },
-      });
-
-      try {
-        const formData = new FormData();
-        formData.append("image", file);
-
-        const response = await api.post(
-          apiEndpoints.uploads.create(),
-          formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-
-        // シンプルにURLを処理
-        let imageUrl = response.data.imageUrl;
-
-        // URLを絶対パスに変換（必要な場合）
-        imageUrl = getAbsoluteImageUrl(imageUrl);
-        console.log("使用するURL:", imageUrl);
-
+    // ドラッグデータの取得
+    const data = e.dataTransfer.getData("text");
+    try {
+      const card = JSON.parse(data);
+      if (card && card.name) {
         dispatch({
           type: "SET_CARD",
           index,
-          payload: { name: file.name, imageUrl: imageUrl },
+          payload: {
+            name: card.name,
+            imageUrl: card.imageUrl || null,
+            id: card.id || null, // 可能であればIDを保持
+          },
         });
+      }
+    } catch (error) {
+      console.error("ドラッグデータの解析に失敗しました:", error);
+      // JSONでなければURLとして処理
+      const imageUrl = data;
+      if (imageUrl) {
+        try {
+          // 画像URLからファイル名を抽出
+          const fileName = imageUrl.split("/").pop() || "unknown";
 
-        // ローカルURLを解放
-        URL.revokeObjectURL(localUrl);
-      } catch (error) {
-        const standardizedError = handleApiError(error, {
-          context: "画像アップロード",
-        });
-        dispatch({
-          type: "SUBMIT_ERROR",
-          payload: standardizedError.message,
-        });
-        // エラー時にもローカルURLを解放
-        URL.revokeObjectURL(localUrl);
+          // URLから画像を取得
+          const response = await fetch(imageUrl);
+          const blob = await response.blob();
+
+          // FormDataの作成
+          const formData = new FormData();
+          formData.append("file", blob, fileName);
+
+          // フォームデータの内容を確認（デバッグ用）
+          console.log("Drag&Drop FormData entries:");
+          for (let pair of formData.entries()) {
+            console.log(
+              `${pair[0]}: ${pair[1]} (${typeof pair[1]}, filename: ${
+                blob.name || "N/A"
+              })`
+            );
+          }
+
+          // APIにアップロード
+          console.log("Uploading drag&drop to:", apiEndpoints.uploads.create());
+          const uploadResponse = await uploadApi.post(
+            apiEndpoints.uploads.create(),
+            formData,
+            {
+              headers: {
+                // ヘッダーからContent-Typeを削除し、axiosに自動設定させる
+                "X-Requested-With": "XMLHttpRequest",
+              },
+            }
+          );
+
+          // アップロード成功ならカードを更新
+          let imageUrl = uploadResponse.data.imageUrl;
+          let permanent_url = uploadResponse.data.image_url;
+
+          // 永続URLを優先し、ない場合は一時URLを使用
+          let displayUrl = permanent_url || imageUrl;
+
+          // 相対パスの場合のみ絶対URLに変換（blobは変換しない）
+          if (
+            displayUrl &&
+            !displayUrl.startsWith("http") &&
+            !displayUrl.startsWith("blob:")
+          ) {
+            displayUrl = getAbsoluteImageUrl(displayUrl);
+            console.log("使用するURL:", displayUrl);
+          }
+
+          dispatch({
+            type: "SET_CARD",
+            index,
+            payload: { name: fileName, imageUrl: displayUrl },
+          });
+        } catch (error) {
+          console.error("URLからの画像取得に失敗しました:", error);
+        }
       }
     }
   };
 
   const handleCardDragStart = (e, card) => {
+    e.dataTransfer.setData("text", JSON.stringify(card));
     if (card.imageUrl) {
       e.dataTransfer.setData("text/uri-list", card.imageUrl);
     }
   };
 
   const handleFileChange = async (e, index) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
-    // まずローカルでプレビューを表示
+    // 一時的なプレビュー用に画像URLを生成
     const localUrl = URL.createObjectURL(file);
+
+    // 画像ファイルが選択されたら、一時的にローカルURLを表示
+
     dispatch({
       type: "SET_CARD",
       index,
       payload: { name: file.name, imageUrl: localUrl },
     });
 
+    // FormDataの作成
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // フォームデータの内容を確認（デバッグ用）
+    console.log("FormData entries:");
+    for (let pair of formData.entries()) {
+      console.log(`${pair[0]}: ${pair[1]} (${typeof pair[1]})`);
+    }
+
     try {
-      const formData = new FormData();
-      formData.append("image", file);
+      // APIにアップロード
+      console.log("Uploading to:", apiEndpoints.uploads.create());
+      const response = await uploadApi.post(
+        apiEndpoints.uploads.create(),
+        formData,
+        {
+          headers: {
+            // ヘッダーからContent-Typeを削除し、axiosに自動設定させる
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        }
+      );
 
-      const response = await api.post(apiEndpoints.uploads.create(), formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      // シンプルにURLを処理
+      // アップロード成功ならカードを更新
       let imageUrl = response.data.imageUrl;
+      let permanent_url = response.data.image_url;
 
-      // URLを絶対パスに変換（必要な場合）
-      imageUrl = getAbsoluteImageUrl(imageUrl);
-      console.log("使用するURL:", imageUrl);
+      // 永続URLを優先し、ない場合は一時URLを使用
+      let displayUrl = permanent_url || imageUrl;
 
+      // 相対パスの場合のみ絶対URLに変換（blobは変換しない）
+      if (
+        displayUrl &&
+        !displayUrl.startsWith("http") &&
+        !displayUrl.startsWith("blob:")
+      ) {
+        displayUrl = getAbsoluteImageUrl(displayUrl);
+        console.log("使用するURL:", displayUrl);
+      }
+
+      // ローカルURLは不要になったので解放
+      URL.revokeObjectURL(localUrl);
+
+      // サーバーから返ってきたURLとIDを使ってカードを更新
       dispatch({
         type: "SET_CARD",
         index,
-        payload: { name: file.name, imageUrl: imageUrl },
+        payload: {
+          name: file.name,
+          imageUrl: displayUrl,
+          id: response.data.id, // サーバーがIDを返す場合はここで保存
+        },
       });
-
-      // ローカルURLを解放
-      URL.revokeObjectURL(localUrl);
     } catch (error) {
+      console.error("画像アップロードに失敗しました:", error);
       const standardizedError = handleApiError(error, {
         context: "画像アップロード",
       });
@@ -175,12 +267,20 @@ const NewDeckForm = () => {
     dispatch({ type: "SUBMIT_START" });
 
     try {
-      await api.post(apiEndpoints.decks.create(), {
+      const response = await api.post(apiEndpoints.decks.create(), {
         deck: {
           name: state.name,
-          cards: state.cards,
+          cards: state.cards.map((card) => ({
+            ...card,
+            // idを明示的に含める
+            id: card.id || undefined,
+          })),
         },
       });
+
+      // 新しいデッキIDを保存
+      const newDeckId = response.data.id;
+      setDeckId(newDeckId);
       dispatch({ type: "SUBMIT_SUCCESS" });
       navigate("/");
     } catch (error) {
@@ -208,7 +308,23 @@ const NewDeckForm = () => {
               draggable={!!card.imageUrl}
               className="w-full h-32 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center bg-gray-50 relative cursor-pointer"
             >
-              {card.imageUrl ? (
+              {card.id && deckId ? (
+                <div className="w-full h-full relative">
+                  <img
+                    src={apiEndpoints.cards.getImage(deckId, card.id)}
+                    alt={card.name || `カード${index + 1}`}
+                    className="w-full h-full object-cover rounded-md"
+                    onError={(e) => {
+                      console.error(
+                        "永続的なURLで画像の読み込みに失敗しました:",
+                        apiEndpoints.cards.getImage(deckId, card.id)
+                      );
+                      e.target.onerror = null;
+                      e.target.style.display = "none";
+                    }}
+                  />
+                </div>
+              ) : card.imageUrl ? (
                 <div className="w-full h-full relative">
                   <img
                     src={card.imageUrl}
@@ -220,6 +336,50 @@ const NewDeckForm = () => {
                         card.imageUrl
                       );
 
+                      // blobURLの場合は非表示にする（再試行は無意味）
+                      if (card.imageUrl && card.imageUrl.startsWith("blob:")) {
+                        e.target.onerror = null;
+                        e.target.style.display = "none";
+                        return;
+                      }
+
+                      // ActiveStorageのURLで固定IPが含まれる場合は現在のホストに置き換える
+                      if (
+                        card.imageUrl &&
+                        card.imageUrl.includes("/rails/active_storage/")
+                      ) {
+                        try {
+                          // URLからパスだけ抽出（/rails/active_storage/...以降）
+                          const urlObj = new URL(card.imageUrl);
+                          const pathParts = urlObj.pathname.split("/");
+                          const activePath = pathParts
+                            .slice(pathParts.indexOf("rails"))
+                            .join("/");
+
+                          // 新しいホストベースのURLを構築
+                          const newUrl = `${window.location.protocol}//${window.location.host}/${activePath}`;
+                          console.log("ホスト名を置き換えた新しいURL:", newUrl);
+                          e.target.src = newUrl;
+                          return;
+                        } catch (err) {
+                          console.error("URL置換に失敗:", err);
+                        }
+                      }
+
+                      // カードIDがあれば永続的なURLにフォールバック
+                      if (card.id) {
+                        const fallbackUrl = apiEndpoints.cards.getImage(
+                          null,
+                          card.id
+                        );
+                        console.log(
+                          "永続的なURLにフォールバック:",
+                          fallbackUrl
+                        );
+                        e.target.src = fallbackUrl;
+                        return;
+                      }
+
                       // 相対パスなら絶対URLに変換して再試行
                       if (card.imageUrl && !card.imageUrl.startsWith("http")) {
                         const newUrl = getAbsoluteImageUrl(card.imageUrl);
@@ -228,6 +388,7 @@ const NewDeckForm = () => {
                         return;
                       }
 
+                      // それでも失敗したら非表示
                       e.target.onerror = null;
                       e.target.style.display = "none";
                     }}
@@ -307,7 +468,7 @@ const NewDeckForm = () => {
               <button
                 type="button"
                 disabled={currentPage === 0}
-                onClick={() => setCurrentPage(currentPage - 1)}
+                onClick={() => handlePageChange(currentPage - 1)}
                 className={`px-4 py-2 rounded ${
                   currentPage === 0
                     ? "bg-gray-300 cursor-not-allowed"
@@ -324,7 +485,7 @@ const NewDeckForm = () => {
               <button
                 type="button"
                 disabled={currentPage === 4}
-                onClick={() => setCurrentPage(currentPage + 1)}
+                onClick={() => handlePageChange(currentPage + 1)}
                 className={`px-4 py-2 rounded ${
                   currentPage === 4
                     ? "bg-gray-300 cursor-not-allowed"

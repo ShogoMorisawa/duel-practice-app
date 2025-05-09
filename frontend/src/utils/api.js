@@ -1,11 +1,18 @@
 // APIのベースURLを動的に設定
 const getApiBaseUrl = () => {
+  // 常に現在のウィンドウのホスト名を使用
   const host = window.location.hostname;
-  return `http://${host}:3000`;
+  const port = "3000"; // APIのポートは固定
+  return `${window.location.protocol}//${host}:${port}`;
 };
 
 export const API_BASE_URL = getApiBaseUrl();
 export const API_PREFIX = "/api"; // APIのプレフィックスを集中管理
+
+// フルAPIベースURL（プロトコル+ホスト+ポート+プレフィックス）
+export const getFullApiBaseUrl = () => {
+  return API_BASE_URL + API_PREFIX;
+};
 
 // エラータイプの定義
 export const API_ERROR_TYPES = {
@@ -96,6 +103,8 @@ export const handleApiError = (error, options = {}) => {
 export const getAbsoluteImageUrl = (relativeUrl) => {
   if (!relativeUrl) return null;
   if (relativeUrl.startsWith("http")) return relativeUrl;
+  if (relativeUrl.startsWith("blob:")) return relativeUrl; // blob URLはそのまま返す
+
 
   // 相対パスの場合、APIのホストと結合
   const apiBase = API_BASE_URL.replace(/\/+$/, ""); // 末尾のスラッシュを削除
@@ -111,6 +120,21 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  // 大きなファイルをアップロードできるように設定を追加
+  maxContentLength: 100 * 1024 * 1024, // 100MB
+  maxBodyLength: 100 * 1024 * 1024, // 100MB
+  // リクエストのタイムアウト設定
+  timeout: 30000, // 30秒
+});
+
+// multipart/form-dataのPOSTリクエスト用に専用のインスタンスを作成
+export const uploadApi = axios.create({
+  baseURL: API_BASE_URL,
+  // multipart/form-dataではContent-Typeヘッダーを設定せず、
+  // axiosにboundaryを自動生成させる
+  maxContentLength: 100 * 1024 * 1024, // 100MB
+  maxBodyLength: 100 * 1024 * 1024, // 100MB
+  timeout: 60000, // 60秒（アップロードには長めの時間を設定）
 });
 
 // 共通APIエンドポイントヘルパー関数
@@ -127,6 +151,13 @@ export const apiEndpoints = {
     getOne: (id) => `${API_PREFIX}/decks/${id}`,
     create: () => `${API_PREFIX}/decks`,
     delete: (id) => `${API_PREFIX}/decks/${id}`,
+  },
+  // カード関連
+  cards: {
+    getImage: (deckId, cardId) =>
+      deckId
+        ? `${API_PREFIX}/decks/${deckId}/cards/${cardId}/image`
+        : `${API_PREFIX}/cards/${cardId}/image`,
   },
   // アップロード関連
   uploads: {

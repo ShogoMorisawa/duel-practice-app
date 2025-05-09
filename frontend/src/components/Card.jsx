@@ -1,5 +1,6 @@
 import React from "react";
 import { useDrag } from "react-dnd";
+import { apiEndpoints } from "../utils/api";
 
 /**
  * カードコンポーネント
@@ -11,7 +12,9 @@ import { useDrag } from "react-dnd";
  * @param {function} props.onClick - クリック時のハンドラ
  * @param {string} props.type - カードの種類（手札、シールド、山札など）[後方互換用]
  * @param {string} props.zone - カードのゾーン（hand, deck, field など）
- * @param {string} props.imageUrl - カード画像のURL
+ * @param {string} props.imageUrl - カード画像のURL（レガシーサポート用）
+ * @param {string} props.deckId - カードが所属するデッキのID
+ * @param {string} props.cardId - カードのID（APIエンドポイント用）
  * @param {number} props.rotation - 回転角度
  */
 const Card = ({
@@ -23,12 +26,24 @@ const Card = ({
   type = "default",
   zone,
   imageUrl,
+  deckId,
+  cardId,
   rotation = 0,
 }) => {
   // デバッグログを追加
   console.log(
-    `[Card Debug] id: ${id}, isFlipped: ${isFlipped}, imageUrl: ${imageUrl}`
+    `[Card Debug] id: ${id}, isFlipped: ${isFlipped}, imageUrl: ${imageUrl}, deckId: ${deckId}, cardId: ${cardId}`
   );
+
+  // 画像URLを取得する関数
+  const getCardImageUrl = () => {
+    // deckIdとcardIdが両方存在する場合、永続的なURLを使用
+    if (deckId && cardId) {
+      return apiEndpoints.cards.getImage(deckId, cardId);
+    }
+    // そうでない場合は従来のimageUrlを使用（後方互換性）
+    return imageUrl;
+  };
 
   // zoneがあればそれを使い、なければtypeを使う移行期コード
   const actualZone = zone || type;
@@ -52,7 +67,9 @@ const Card = ({
       isFlipped,
       type: actualZone,
       zone: actualZone,
-      imageUrl,
+      imageUrl: getCardImageUrl(),
+      deckId,
+      cardId,
     },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
@@ -79,6 +96,9 @@ const Card = ({
   // 裏面/表面スタイル
   const flipClasses = isFlipped ? "bg-gray-900" : cardZoneClasses[actualZone];
 
+  // 実際に使用する画像URL
+  const cardImageUrl = getCardImageUrl();
+
   return (
     <div
       ref={dragRef}
@@ -99,11 +119,11 @@ const Card = ({
         <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-[8px] rounded">
           裏面
         </div>
-      ) : imageUrl ? (
+      ) : cardImageUrl ? (
         <div
           className="w-full h-full bg-cover bg-center rounded"
           style={{
-            backgroundImage: `url(${imageUrl})`,
+            backgroundImage: `url(${cardImageUrl})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",

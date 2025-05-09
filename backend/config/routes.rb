@@ -27,8 +27,18 @@ Rails.application.routes.draw do
     end
 
     # 既存のAPIルート
-    resources :decks, only: [:index, :show, :create, :destroy]
+    resources :decks, only: [:index, :show, :create, :destroy] do
+      resources :cards, only: [] do
+        get 'image', to: 'decks#card_image', on: :member
+      end
+    end
+
     post 'uploads', to: 'uploads#create'
+    
+    # デッキIDなしでカード画像にアクセスするための直接ルート
+    resources :cards, only: [] do
+      get 'image', to: 'cards#image', on: :member
+    end
   end
   
   # ActiveStorageのルーティング
