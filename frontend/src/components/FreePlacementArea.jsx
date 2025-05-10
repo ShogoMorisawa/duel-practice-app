@@ -29,7 +29,7 @@ const FreePlacementArea = ({
   }, [onInit]);
 
   // ドロップ処理
-  const [, dropRef] = useDrop(
+  const [{ isOver }, dropRef] = useDrop(
     () => ({
       accept: "CARD",
       drop: (item, monitor) => {
@@ -80,6 +80,8 @@ const FreePlacementArea = ({
             itemZone
           );
         }
+
+        return { dropped: true }; // ドロップ成功を明示的に返す
       },
       hover: (item, monitor) => {
         // ホバー状態の処理（必要に応じて）
@@ -92,10 +94,6 @@ const FreePlacementArea = ({
       options: {
         // ドロップエフェクト設定
         dropEffect: "move",
-        // タッチデバイス向け設定
-        enableTouchEvents: true,
-        enableMouseEvents: true,
-        enableKeyboardEvents: true,
       },
       collect: (monitor) => ({
         isOver: !!monitor.isOver(),
@@ -114,10 +112,13 @@ const FreePlacementArea = ({
   return (
     <div
       ref={combinedRef}
-      className="free-placement-area relative w-full h-full bg-green-100 rounded-lg overflow-hidden"
+      className={`free-placement-area relative w-full h-full rounded-lg overflow-hidden ${
+        isOver ? "bg-green-200" : "bg-green-100"
+      }`}
       style={{
         minHeight: "200px",
-        border: "2px dashed #ccc",
+        border: isOver ? "2px solid #4ade80" : "2px dashed #ccc",
+        touchAction: "manipulation",
       }}
     >
       {/* fieldCardsを全部表示 */}

@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TouchBackend } from "react-dnd-touch-backend";
-import { isMobile } from "react-device-detect";
 import { api, apiEndpoints, handleApiError } from "../utils/api";
 import Card from "../components/Card";
 import FreePlacementArea from "../components/FreePlacementArea";
@@ -181,6 +180,15 @@ function reducer(state, action) {
       return state;
   }
 }
+
+// タッチデバイス判定の追加
+const isTouchDevice = () => {
+  return (
+    "ontouchstart" in window ||
+    navigator.maxTouchPoints > 0 ||
+    navigator.msMaxTouchPoints > 0
+  );
+};
 
 // --- メインコンポーネント ---
 function PlayDeck() {
@@ -536,18 +544,18 @@ function PlayDeck() {
 
   return (
     <DndProvider
-      backend={isMobile ? TouchBackend : HTML5Backend}
+      backend={isTouchDevice() ? TouchBackend : HTML5Backend}
       options={
-        isMobile
+        isTouchDevice()
           ? {
               enableMouseEvents: true,
-              delayTouchStart: 100, // タッチの認識精度向上のため少し遅延を設定
+              delayTouchStart: 0, // タッチの遅延をなくす
               delayMouseStart: 0,
-              touchSlop: 5, // 微小なタッチの移動を無視
+              touchSlop: 1, // 微小なタッチの移動を許容
               ignoreContextMenu: true,
               enableKeyboardEvents: true,
               scrollAngleRanges: [
-                { start: 300, end: 60 }, // 上下スクロール時はドラッグを無効化する範囲
+                { start: 330, end: 30 }, // スクロール無効化範囲を縮小
               ],
             }
           : undefined
