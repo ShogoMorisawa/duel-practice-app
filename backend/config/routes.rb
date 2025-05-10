@@ -24,6 +24,7 @@ Rails.application.routes.draw do
         delete 'logout', to: 'sessions#destroy'
         post 'register', to: 'registrations#create'
       end
+      get 'profile', to: 'profiles#show'
     end
 
     # 既存のAPIルート

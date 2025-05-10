@@ -11,7 +11,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 const initialState = {
   name: "",
-  cards: Array(40).fill({ name: "", imageUrl: null }),
+  cards: Array(40).fill({ name: "", imageUrl: null, uploading: false }),
   isSubmitting: false,
   error: null,
 };
@@ -109,6 +109,7 @@ const NewDeckForm = () => {
             name: card.name,
             imageUrl: card.imageUrl ? ensureAbsoluteUrl(card.imageUrl) : null,
             id: card.id || null, // 可能であればIDを保持
+            uploading: false, // 既存カードのドロップはアップロード不要
           },
         });
       }
@@ -120,6 +121,17 @@ const NewDeckForm = () => {
         try {
           // 画像URLからファイル名を抽出
           const fileName = imageUrl.split("/").pop() || "unknown";
+
+          // アップロード中フラグを設定
+          dispatch({
+            type: "SET_CARD",
+            index,
+            payload: {
+              name: fileName,
+              imageUrl: imageUrl, // 元のURLを一時的に表示
+              uploading: true,
+            },
+          });
 
           // URLから画像を取得
           const response = await fetch(imageUrl);
@@ -166,10 +178,24 @@ const NewDeckForm = () => {
           dispatch({
             type: "SET_CARD",
             index,
-            payload: { name: fileName, imageUrl: displayUrl },
+            payload: {
+              name: fileName,
+              imageUrl: displayUrl,
+              uploading: false, // アップロード完了
+            },
           });
         } catch (error) {
           console.error("URLからの画像取得に失敗しました:", error);
+          // エラー時もフラグを解除
+          dispatch({
+            type: "SET_CARD",
+            index,
+            payload: {
+              name: "エラー",
+              imageUrl: null,
+              uploading: false,
+            },
+          });
         }
       }
     }
@@ -189,11 +215,15 @@ const NewDeckForm = () => {
     // 一時的なプレビュー用に画像URLを生成
     const localUrl = URL.createObjectURL(file);
 
-    // 画像ファイルが選択されたら、一時的にローカルURLを表示
+    // 画像ファイルが選択されたら、一時的にローカルURLを表示しアップロード中フラグをセット
     dispatch({
       type: "SET_CARD",
       index,
-      payload: { name: file.name, imageUrl: localUrl },
+      payload: {
+        name: file.name,
+        imageUrl: localUrl,
+        uploading: true, // アップロード中フラグをセット
+      },
     });
 
     // FormDataの作成
@@ -234,11 +264,25 @@ const NewDeckForm = () => {
       dispatch({
         type: "SET_CARD",
         index,
-        payload: { name: file.name, imageUrl: displayUrl },
+        payload: {
+          name: file.name,
+          imageUrl: displayUrl,
+          uploading: false, // アップロード完了フラグ
+        },
       });
     } catch (error) {
       console.error("画像のアップロードに失敗しました:", error);
-      // エラー発生時は一時的なBlob URLのままとし、送信時に再アップロードを試みる
+      // エラー発生時はアップロード失敗を通知
+      dispatch({
+        type: "SET_CARD",
+        index,
+        payload: {
+          name: file.name,
+          imageUrl: localUrl, // 元の画像URLを維持
+          uploading: false, // エラー時もフラグを解除
+          error: true, // エラーフラグを追加
+        },
+      });
     }
   };
 
@@ -286,8 +330,12 @@ const NewDeckForm = () => {
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleCardDrop(e, index)}
               onDragStart={(e) => handleCardDragStart(e, card)}
-              draggable={!!card.imageUrl}
-              className="w-full h-32 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center bg-gray-50 relative cursor-pointer"
+              draggable={!!card.imageUrl && !card.uploading}
+              className={`w-full h-32 border-2 border-dashed ${
+                card.error ? "border-red-400" : "border-gray-400"
+              } rounded-md flex items-center justify-center bg-gray-50 relative ${
+                card.uploading ? "cursor-wait" : "cursor-pointer"
+              }`}
             >
               {card.id && deckId ? (
                 <div className="w-full h-full relative">
@@ -319,12 +367,26 @@ const NewDeckForm = () => {
                     }}
                   />
                 </div>
+              ) : card.uploading && card.imageUrl ? (
+                // 画像上にアップロード中のスピナー表示
+                <div className="w-full h-full relative">
+                  <img
+                    src={ensureAbsoluteUrl(card.imageUrl)}
+                    alt={card.name || `カード${index + 1}`}
+                    className="w-full h-full object-cover rounded-md opacity-70"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 z-10 bg-white bg-opacity-60 p-2 rounded-full"></div>
+                  </div>
+                </div>
               ) : card.imageUrl ? (
                 <div className="w-full h-full relative">
                   <img
                     src={ensureAbsoluteUrl(card.imageUrl)}
                     alt={card.name || `カード${index + 1}`}
-                    className="w-full h-full object-cover rounded-md"
+                    className={`w-full h-full object-cover rounded-md ${
+                      card.error ? "opacity-50" : ""
+                    }`}
                     onError={(e) => {
                       console.error(
                         "画像の読み込みに失敗しました:",
@@ -389,6 +451,26 @@ const NewDeckForm = () => {
                       }
                     }}
                   />
+                  {card.error && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-red-100 bg-opacity-80 p-2 rounded-full">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-8 w-8 text-red-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <span className="text-gray-400 text-sm whitespace-pre-line text-center">
@@ -500,17 +582,29 @@ const NewDeckForm = () => {
           )}
 
           <div className="flex justify-center mt-6">
-            <button
-              type="submit"
-              className={`px-6 py-3 rounded-md text-white font-medium ${
-                state.isSubmitting || !state.name.trim()
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              }`}
-              disabled={state.isSubmitting || !state.name.trim()}
-            >
-              {state.isSubmitting ? "作成中..." : "デッキを作成"}
-            </button>
+            {/* アップロード中かどうかチェック */}
+            {(() => {
+              const isAnyUploading = state.cards.some((card) => card.uploading);
+              return (
+                <button
+                  type="submit"
+                  className={`px-6 py-3 rounded-md text-white font-medium ${
+                    state.isSubmitting || !state.name.trim() || isAnyUploading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  }`}
+                  disabled={
+                    state.isSubmitting || !state.name.trim() || isAnyUploading
+                  }
+                >
+                  {state.isSubmitting
+                    ? "作成中..."
+                    : isAnyUploading
+                    ? "画像アップロード中..."
+                    : "デッキを作成"}
+                </button>
+              );
+            })()}
           </div>
         </form>
       )}
