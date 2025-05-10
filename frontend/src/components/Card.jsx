@@ -179,7 +179,7 @@ const Card = ({
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
         userSelect: "none",
-        pointerEvents: "auto",
+        pointerEvents: "all",
       }}
     >
       {isFlipped ? (
@@ -233,8 +233,8 @@ const Card = ({
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
             userSelect: "none",
-            touchAction: "none",
-            pointerEvents: "auto",
+            touchAction: "manipulation",
+            pointerEvents: "all",
           }}
           onError={(e) => {
             console.error(

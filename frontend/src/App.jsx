@@ -11,31 +11,35 @@ import DeckDetail from "./pages/DeckDetail";
 import PlayDeck from "./pages/PlayDeck";
 import Login from "./pages/Login";
 
+// タッチデバイス判定関数
+const isTouchDevice = () => {
+  return (
+    "ontouchstart" in window ||
+    navigator.maxTouchPoints > 0 ||
+    navigator.msMaxTouchPoints > 0
+  );
+};
+
 function App() {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-
-    return () => {
-      window.removeEventListener("resize", checkMobile);
-    };
+    // タッチデバイス判定
+    setIsTouch(isTouchDevice());
   }, []);
 
   return (
     <AuthProvider>
       <DndProvider
-        backend={isMobile ? TouchBackend : HTML5Backend}
+        backend={isTouch ? TouchBackend : HTML5Backend}
         options={
-          isMobile
+          isTouch
             ? {
                 enableMouseEvents: true,
-                enableTouchEvents: true,
+                delayTouchStart: 0,
+                delayMouseStart: 0,
+                touchSlop: 1,
+                ignoreContextMenu: true,
                 enableKeyboardEvents: true,
               }
             : undefined

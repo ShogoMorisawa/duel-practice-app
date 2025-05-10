@@ -100,13 +100,12 @@ const DraggableCard = ({
       },
       end: (item, monitor) => {
         const delta = monitor.getDifferenceFromInitialOffset();
-        const didDrop = monitor.didDrop();
 
         if (delta) {
           const newX = Math.round(initialPos.x + delta.x);
           const newY = Math.round(initialPos.y + delta.y);
 
-          if (didDrop && onMove) {
+          if (onMove) {
             console.log(
               `[DEBUG] Card dragged to new position: {x: ${newX}, y: ${newY}}`
             );
@@ -119,11 +118,9 @@ const DraggableCard = ({
           }
         }
 
-        // ドラッグ終了後、少し待ってからフラグをリセット
-        setTimeout(() => {
-          isDraggingRef.current = false;
-          console.log("🧪 isDragging", false); // ドラッグ終了時のログ
-        }, 300);
+        // フラグをすぐにリセット
+        isDraggingRef.current = false;
+        console.log("🧪 isDragging", false); // ドラッグ終了時のログ
       },
       collect: (monitor) => {
         const dragging = monitor.isDragging();
@@ -134,6 +131,7 @@ const DraggableCard = ({
       },
       options: {
         dropEffect: "move",
+        dropEfficiently: true,
       },
       // 山札はドラッグ不可
       canDrag: () => actualZone !== "deck",
@@ -218,7 +216,7 @@ const DraggableCard = ({
     cursor: "move",
     zIndex: isDragging ? 1000 : 1,
     transition: isDragging ? "none" : "transform 0.2s",
-    touchAction: "none",
+    touchAction: "manipulation",
     WebkitTouchCallout: "none",
     WebkitUserSelect: "none",
     userSelect: "none",
