@@ -10,6 +10,7 @@ import NewDeckForm from "./pages/NewDeckForm";
 import DeckDetail from "./pages/DeckDetail";
 import PlayDeck from "./pages/PlayDeck";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 // タッチデバイス判定関数
 const isTouchDevice = () => {
@@ -48,6 +49,7 @@ function App() {
         <Routes>
           <Route path="/" element={<DeckList />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/new" element={<NewDeckForm />} />
           <Route path="/decks/:id" element={<DeckDetail />} />
           <Route path="/play/:deckId" element={<PlayDeck />} />
