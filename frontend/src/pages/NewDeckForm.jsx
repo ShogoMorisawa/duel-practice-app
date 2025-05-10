@@ -46,6 +46,15 @@ const NewDeckForm = () => {
   // eslint-disable-next-line no-unused-vars
   const [deckId, setDeckId] = useState("");
 
+  // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
+  const ensureAbsoluteUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http") || url.startsWith("blob:")) return url;
+
+    // 絶対URLに変換
+    return getAbsoluteImageUrl(url);
+  };
+
   // ページ移動前に古いblob URLをクリーンアップするための処理
   const handlePageChange = (newPage) => {
     // 現在のページの状態を処理
@@ -98,7 +107,7 @@ const NewDeckForm = () => {
           index,
           payload: {
             name: card.name,
-            imageUrl: card.imageUrl || null,
+            imageUrl: card.imageUrl ? ensureAbsoluteUrl(card.imageUrl) : null,
             id: card.id || null, // 可能であればIDを保持
           },
         });
@@ -150,15 +159,9 @@ const NewDeckForm = () => {
           // 永続URLを優先し、ない場合は一時URLを使用
           let displayUrl = permanent_url || imageUrl;
 
-          // 相対パスの場合のみ絶対URLに変換（blobは変換しない）
-          if (
-            displayUrl &&
-            !displayUrl.startsWith("http") &&
-            !displayUrl.startsWith("blob:")
-          ) {
-            displayUrl = getAbsoluteImageUrl(displayUrl);
-            console.log("使用するURL:", displayUrl);
-          }
+          // 相対パスの場合は絶対URLに変換（blobは変換しない）
+          displayUrl = ensureAbsoluteUrl(displayUrl);
+          console.log("使用するURL:", displayUrl);
 
           dispatch({
             type: "SET_CARD",
@@ -187,7 +190,6 @@ const NewDeckForm = () => {
     const localUrl = URL.createObjectURL(file);
 
     // 画像ファイルが選択されたら、一時的にローカルURLを表示
-
     dispatch({
       type: "SET_CARD",
       index,
@@ -198,67 +200,45 @@ const NewDeckForm = () => {
     const formData = new FormData();
     formData.append("file", file);
 
-    // フォームデータの内容を確認（デバッグ用）
-    console.log("FormData entries:");
-    for (let pair of formData.entries()) {
-      console.log(`${pair[0]}: ${pair[1]} (${typeof pair[1]})`);
-    }
-
     try {
-      // APIにアップロード
+      // アップロードエンドポイントの確認
       console.log("Uploading to:", apiEndpoints.uploads.create());
+
+      // 画像ファイルをアップロード
       const response = await uploadApi.post(
         apiEndpoints.uploads.create(),
         formData,
         {
           headers: {
-            // ヘッダーからContent-Typeを削除し、axiosに自動設定させる
+            // Content-Typeヘッダーを指定せずaxiosに自動設定させる
             "X-Requested-With": "XMLHttpRequest",
           },
         }
       );
 
-      // アップロード成功ならカードを更新
-      let imageUrl = response.data.imageUrl;
-      let permanent_url = response.data.image_url;
-
-      // 永続URLを優先し、ない場合は一時URLを使用
-      let displayUrl = permanent_url || imageUrl;
-
-      // 相対パスの場合のみ絶対URLに変換（blobは変換しない）
-      if (
-        displayUrl &&
-        !displayUrl.startsWith("http") &&
-        !displayUrl.startsWith("blob:")
-      ) {
-        displayUrl = getAbsoluteImageUrl(displayUrl);
-        console.log("使用するURL:", displayUrl);
-      }
-
-      // ローカルURLは不要になったので解放
+      // アップロード成功後、一時的なBlob URLを解放
       URL.revokeObjectURL(localUrl);
 
-      // サーバーから返ってきたURLとIDを使ってカードを更新
+      // サーバーからの応答を確認
+      console.log("Upload response:", response.data);
+
+      // 永続的なURLを優先し、なければ一時的なURLを使用
+      const permanentUrl = response.data.image_url;
+      const tempUrl = response.data.imageUrl;
+      let displayUrl = permanentUrl || tempUrl;
+
+      // 相対パスの場合は絶対URLに変換
+      displayUrl = ensureAbsoluteUrl(displayUrl);
+      console.log("最終的に使用するURL:", displayUrl);
+
       dispatch({
         type: "SET_CARD",
         index,
-        payload: {
-          name: file.name,
-          imageUrl: displayUrl,
-          id: response.data.id, // サーバーがIDを返す場合はここで保存
-        },
+        payload: { name: file.name, imageUrl: displayUrl },
       });
     } catch (error) {
-      console.error("画像アップロードに失敗しました:", error);
-      const standardizedError = handleApiError(error, {
-        context: "画像アップロード",
-      });
-      dispatch({
-        type: "SUBMIT_ERROR",
-        payload: standardizedError.message,
-      });
-      // エラー時にもローカルURLを解放
-      URL.revokeObjectURL(localUrl);
+      console.error("画像のアップロードに失敗しました:", error);
+      // エラー発生時は一時的なBlob URLのままとし、送信時に再アップロードを試みる
     }
   };
 
@@ -296,7 +276,7 @@ const NewDeckForm = () => {
     const pageCards = state.cards.slice(pageStartIndex, pageStartIndex + 8);
 
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {pageCards.map((card, i) => {
           const index = pageStartIndex + i;
           return (
@@ -311,7 +291,9 @@ const NewDeckForm = () => {
               {card.id && deckId ? (
                 <div className="w-full h-full relative">
                   <img
-                    src={apiEndpoints.cards.getImage(deckId, card.id)}
+                    src={ensureAbsoluteUrl(
+                      apiEndpoints.cards.getImage(deckId, card.id)
+                    )}
                     alt={card.name || `カード${index + 1}`}
                     className="w-full h-full object-cover rounded-md"
                     onError={(e) => {
@@ -320,14 +302,26 @@ const NewDeckForm = () => {
                         apiEndpoints.cards.getImage(deckId, card.id)
                       );
                       e.target.onerror = null;
-                      e.target.style.display = "none";
+
+                      // フォールバックイメージを試す
+                      const fallbackImage = ensureAbsoluteUrl(
+                        apiEndpoints.cards.getFallbackImage()
+                      );
+                      if (fallbackImage) {
+                        e.target.src = fallbackImage;
+                        e.target.onerror = () => {
+                          e.target.style.display = "none";
+                        };
+                      } else {
+                        e.target.style.display = "none";
+                      }
                     }}
                   />
                 </div>
               ) : card.imageUrl ? (
                 <div className="w-full h-full relative">
                   <img
-                    src={card.imageUrl}
+                    src={ensureAbsoluteUrl(card.imageUrl)}
                     alt={card.name || `カード${index + 1}`}
                     className="w-full h-full object-cover rounded-md"
                     onError={(e) => {
@@ -368,9 +362,8 @@ const NewDeckForm = () => {
 
                       // カードIDがあれば永続的なURLにフォールバック
                       if (card.id) {
-                        const fallbackUrl = apiEndpoints.cards.getImage(
-                          null,
-                          card.id
+                        const fallbackUrl = ensureAbsoluteUrl(
+                          apiEndpoints.cards.getImage(null, card.id)
                         );
                         console.log(
                           "永続的なURLにフォールバック:",
@@ -380,17 +373,19 @@ const NewDeckForm = () => {
                         return;
                       }
 
-                      // 相対パスなら絶対URLに変換して再試行
-                      if (card.imageUrl && !card.imageUrl.startsWith("http")) {
-                        const newUrl = getAbsoluteImageUrl(card.imageUrl);
-                        console.log("絶対URLに変換して再試行:", newUrl);
-                        e.target.src = newUrl;
-                        return;
+                      // フォールバックイメージを試す
+                      const fallbackImage = ensureAbsoluteUrl(
+                        apiEndpoints.cards.getFallbackImage()
+                      );
+                      if (fallbackImage) {
+                        console.log("フォールバック画像を使用:", fallbackImage);
+                        e.target.src = fallbackImage;
+                        e.target.onerror = () => {
+                          e.target.style.display = "none";
+                        };
+                      } else {
+                        e.target.style.display = "none";
                       }
-
-                      // それでも失敗したら非表示
-                      e.target.onerror = null;
-                      e.target.style.display = "none";
                     }}
                   />
                 </div>

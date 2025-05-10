@@ -3,7 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TouchBackend } from "react-dnd-touch-backend";
-import { api, apiEndpoints, handleApiError } from "../utils/api";
+import {
+  api,
+  apiEndpoints,
+  handleApiError,
+  getAbsoluteImageUrl,
+} from "../utils/api";
 import Card from "../components/Card";
 import FreePlacementArea from "../components/FreePlacementArea";
 import HandArea from "../components/HandArea";
@@ -202,6 +207,15 @@ function PlayDeck() {
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
   const [activeMode, setActiveMode] = useState(null); // アクティブなモードを一元管理
 
+  // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
+  const ensureAbsoluteUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http") || url.startsWith("blob:")) return url;
+
+    // 絶対URLに変換
+    return getAbsoluteImageUrl(url);
+  };
+
   // モード切り替え関数
   const activateMode = useCallback((mode) => {
     setActiveMode(mode);
@@ -277,7 +291,9 @@ function PlayDeck() {
       const initialShield = cardDataList.slice(0, 5).map((cardData, i) =>
         createCard({
           name: cardData.name || "",
-          imageUrl: cardData.imageUrl || null,
+          imageUrl: cardData.imageUrl
+            ? ensureAbsoluteUrl(cardData.imageUrl)
+            : null,
           zone: "field",
           isFlipped: true,
           x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60,
@@ -292,7 +308,9 @@ function PlayDeck() {
       const initialHand = cardDataList.slice(5, 10).map((cardData) =>
         createCard({
           name: cardData.name || "",
-          imageUrl: cardData.imageUrl || null,
+          imageUrl: cardData.imageUrl
+            ? ensureAbsoluteUrl(cardData.imageUrl)
+            : null,
           zone: "hand",
           isFlipped: false,
           deckId: deckId,
@@ -304,7 +322,9 @@ function PlayDeck() {
       const deckCards = cardDataList.slice(10).map((cardData) =>
         createCard({
           name: cardData.name || "",
-          imageUrl: cardData.imageUrl || null,
+          imageUrl: cardData.imageUrl
+            ? ensureAbsoluteUrl(cardData.imageUrl)
+            : null,
           zone: "deck",
           isFlipped: true,
           deckId: deckId,

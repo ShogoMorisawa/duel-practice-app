@@ -1,6 +1,6 @@
 import React from "react";
 import { useDrag } from "react-dnd";
-import { apiEndpoints } from "../utils/api";
+import { apiEndpoints, getAbsoluteImageUrl } from "../utils/api";
 
 /**
  * カードコンポーネント
@@ -35,6 +35,15 @@ const Card = ({
     `[Card Debug] id: ${id}, isFlipped: ${isFlipped}, imageUrl: ${imageUrl}, deckId: ${deckId}, cardId: ${cardId}`
   );
 
+  // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
+  const ensureAbsoluteUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http") || url.startsWith("blob:")) return url;
+
+    // 絶対URLに変換
+    return getAbsoluteImageUrl(url);
+  };
+
   // 画像URLを取得する関数
   const getCardImageUrl = () => {
     // シールドカードの処理を追加（裏面でも画像参照できるように）
@@ -65,7 +74,7 @@ const Card = ({
     // 1. DBに存在するcardIdがある場合は常に直接cardIdのエンドポイントを優先（より信頼性が高い）
     if (isValidDbId && !isGeneratedId) {
       console.log("[Card] 永続的なURL（cardIdのみ）を使用: cardId=", cardId);
-      return apiEndpoints.cards.getImageById(cardId);
+      return ensureAbsoluteUrl(apiEndpoints.cards.getImageById(cardId));
     }
 
     // 2. deckIdとDBに存在するcardIdが両方ある場合、deck経由の永続的なURLを使用 (フォールバック用)
@@ -76,7 +85,7 @@ const Card = ({
         "cardId=",
         cardId
       );
-      return apiEndpoints.cards.getImage(deckId, cardId);
+      return ensureAbsoluteUrl(apiEndpoints.cards.getImage(deckId, cardId));
     }
 
     // 3. imageUrlが絶対パスでIPアドレスを含む場合、現在のホストに書き換え
@@ -90,7 +99,9 @@ const Card = ({
           // 抽出したIDで永続的なURLを構築
           const extractedId = idMatch[1];
           console.log("[Card] URLからIDを抽出:", extractedId);
-          return apiEndpoints.cards.getImageById(extractedId);
+          return ensureAbsoluteUrl(
+            apiEndpoints.cards.getImageById(extractedId)
+          );
         }
 
         // IDが抽出できない場合は現在のホストでURLを再構成
@@ -110,7 +121,7 @@ const Card = ({
 
     // 4. そうでない場合は従来のimageUrlを使用（後方互換性）
     console.log("[Card] 従来のimageURLを使用:", imageUrl);
-    return imageUrl;
+    return ensureAbsoluteUrl(imageUrl);
   };
 
   // zoneがあればそれを使い、なければtypeを使う移行期コード
@@ -199,7 +210,9 @@ const Card = ({
 
                 // cardIdがある場合は常に直接cardIdのURLを使用
                 if (cardId && /^\d+$/.test(cardId)) {
-                  const directUrl = apiEndpoints.cards.getImageById(cardId);
+                  const directUrl = ensureAbsoluteUrl(
+                    apiEndpoints.cards.getImageById(cardId)
+                  );
                   console.log(
                     "[Card] 裏面で直接cardIdによるURLを使用:",
                     directUrl
@@ -207,7 +220,9 @@ const Card = ({
                   e.target.src = directUrl;
                 } else {
                   // フォールバック画像を表示
-                  const fallbackUrl = apiEndpoints.cards.getFallbackImage();
+                  const fallbackUrl = ensureAbsoluteUrl(
+                    apiEndpoints.cards.getFallbackImage()
+                  );
                   console.log(
                     "[Card] 裏面でフォールバック画像を使用:",
                     fallbackUrl
@@ -245,7 +260,9 @@ const Card = ({
             // cardIdがある場合のフォールバック処理
             if (cardId && /^\d+$/.test(cardId)) {
               // 常に直接cardIdによるエンドポイントを使用（より信頼性が高い）
-              const directUrl = apiEndpoints.cards.getImageById(cardId);
+              const directUrl = ensureAbsoluteUrl(
+                apiEndpoints.cards.getImageById(cardId)
+              );
 
               // 現在のURLがdeck経由の場合は直接cardIdのURLに切り替え
               if (cardImageUrl.includes(`/decks/${deckId}/cards/`)) {
@@ -259,7 +276,9 @@ const Card = ({
             }
 
             // それでも失敗したらフォールバック画像を表示
-            const fallbackImage = apiEndpoints.cards.getFallbackImage();
+            const fallbackImage = ensureAbsoluteUrl(
+              apiEndpoints.cards.getFallbackImage()
+            );
             console.log("[Card] 最終フォールバック画像を使用:", fallbackImage);
             e.target.style.backgroundImage = `url(${fallbackImage})`;
           }}

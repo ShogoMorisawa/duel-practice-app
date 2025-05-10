@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, apiEndpoints, handleApiError } from "../utils/api";
+import {
+  api,
+  apiEndpoints,
+  handleApiError,
+  getAbsoluteImageUrl,
+} from "../utils/api";
 
 const DeckDetail = () => {
   const { id } = useParams();
@@ -8,6 +13,15 @@ const DeckDetail = () => {
   const [deck, setDeck] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
+  const ensureAbsoluteUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http") || url.startsWith("blob:")) return url;
+
+    // 絶対URLに変換
+    return getAbsoluteImageUrl(url);
+  };
 
   const fetchDeck = async () => {
     setLoading(true);
@@ -101,7 +115,9 @@ const DeckDetail = () => {
           >
             {card.id ? (
               <img
-                src={apiEndpoints.cards.getImageById(card.id)}
+                src={ensureAbsoluteUrl(
+                  apiEndpoints.cards.getImageById(card.id)
+                )}
                 alt={card.name || `カード${i + 1}`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -112,18 +128,33 @@ const DeckDetail = () => {
 
                   // まずdeck経由のURLを試す（フォールバック）
                   try {
-                    const fallbackUrl = apiEndpoints.cards.getImage(
-                      deck.id,
-                      card.id
+                    const fallbackUrl = ensureAbsoluteUrl(
+                      apiEndpoints.cards.getImage(deck.id, card.id)
                     );
                     console.log("フォールバックURLを試行:", fallbackUrl);
                     e.target.src = fallbackUrl;
                     e.target.onerror = () => {
                       // deck経由のURLも失敗した場合
                       console.error("フォールバックURLも失敗:", fallbackUrl);
-                      e.target.style.display = "none"; // 最終的に失敗したら非表示
+
+                      // 最後のフォールバック：静的画像を使用
+                      const staticFallback = ensureAbsoluteUrl(
+                        apiEndpoints.cards.getFallbackImage()
+                      );
+                      if (staticFallback) {
+                        console.log(
+                          "静的フォールバック画像を使用:",
+                          staticFallback
+                        );
+                        e.target.src = staticFallback;
+                        e.target.onerror = () => {
+                          e.target.style.display = "none"; // 最終的に失敗したら非表示
+                        };
+                      } else {
+                        e.target.style.display = "none"; // 最終的に失敗したら非表示
+                      }
                     };
-                  } catch (_) {
+                  } catch (e) {
                     // エラー時は非表示
                     e.target.style.display = "none";
                   }
@@ -131,7 +162,7 @@ const DeckDetail = () => {
               />
             ) : card.image_url || card.imageUrl ? (
               <img
-                src={card.image_url || card.imageUrl}
+                src={ensureAbsoluteUrl(card.image_url || card.imageUrl)}
                 alt={card.name || `カード${i + 1}`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -151,13 +182,27 @@ const DeckDetail = () => {
                       console.log("固定IPのURLを動的URLに変換:", newUrl);
                       e.target.src = newUrl;
                       return;
-                    } catch (_) {
+                    } catch {
                       // URL解析に失敗
                     }
                   }
 
-                  // 最終的には非表示に
-                  e.target.style.display = "none";
+                  // 最終的には静的フォールバックか非表示に
+                  const staticFallback = ensureAbsoluteUrl(
+                    apiEndpoints.cards.getFallbackImage()
+                  );
+                  if (staticFallback) {
+                    console.log(
+                      "静的フォールバック画像を使用:",
+                      staticFallback
+                    );
+                    e.target.src = staticFallback;
+                    e.target.onerror = () => {
+                      e.target.style.display = "none";
+                    };
+                  } else {
+                    e.target.style.display = "none";
+                  }
                 }}
               />
             ) : (
