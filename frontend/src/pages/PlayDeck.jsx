@@ -154,7 +154,8 @@ function reducer(state, action) {
       const deckCards = state.cards.filter((card) => card.zone === "deck");
       if (deckCards.length === 0) return state; // 山札が空なら何もしない
 
-      const cardToDraw = deckCards[deckCards.length - 1];
+      // 山札の一番上（配列の先頭）のカードを引く
+      const cardToDraw = deckCards[0];
       const newCards = state.cards.map((card) =>
         card.id === cardToDraw.id
           ? { ...card, zone: "hand", isFlipped: false }
