@@ -25,6 +25,14 @@ export default function Register() {
     setIsLoading(true);
 
     try {
+      console.log("Register: Sending request with data:", {
+        user: {
+          email,
+          password,
+          password_confirmation: passwordConfirmation,
+        },
+      });
+
       const response = await api.post(apiEndpoints.auth.register(), {
         user: {
           email,
@@ -37,17 +45,40 @@ export default function Register() {
         "Register: Registration successful, response =",
         response.data
       );
+
+      // レスポンスからトークンとユーザー情報を取得
       const { data } = response.data;
 
-      // 登録成功後、自動ログイン
-      await login(data.token, data.user);
-      navigate("/decks");
+      if (data && data.token && data.user) {
+        console.log("登録成功:", data.user.email);
+        // 登録成功後、自動ログイン
+        await login(data.token, data.user);
+        navigate("/decks");
+      } else {
+        throw new Error("レスポンスデータが不正です");
+      }
     } catch (err) {
       console.error("Register: Error occurred", err);
-      const standardizedError = handleApiError(err, {
-        context: "ユーザー登録",
+      console.error("エラー詳細:", {
+        status: err.response?.status,
+        data: JSON.stringify(err.response?.data),
+        headers: err.response?.headers,
+        message: err.message,
+        errors: err.response?.data?.errors,
       });
-      setError(standardizedError.message);
+
+      // エラーメッセージがバックエンドから返されていれば表示
+      if (
+        err.response?.data?.errors &&
+        Array.isArray(err.response.data.errors)
+      ) {
+        setError(err.response.data.errors.join(", "));
+      } else {
+        const standardizedError = handleApiError(err, {
+          context: "ユーザー登録",
+        });
+        setError(standardizedError.message);
+      }
     } finally {
       setIsLoading(false);
     }
