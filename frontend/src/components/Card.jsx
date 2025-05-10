@@ -37,11 +37,79 @@ const Card = ({
 
   // 画像URLを取得する関数
   const getCardImageUrl = () => {
-    // deckIdとcardIdが両方存在する場合、永続的なURLを使用
-    if (deckId && cardId) {
+    // シールドカードの処理を追加（裏面でも画像参照できるように）
+    const isShield = zone === "field" && isFlipped;
+
+    // cardIdがUUID形式または数値（DB ID）かどうかを確認
+    const isValidDbId =
+      cardId &&
+      (/^\d+$/.test(cardId) || // 数値のみのID
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          cardId
+        )); // UUID形式
+
+    // ⚠️ 一時的に生成されたフロントエンドIDを除外（"field-123456789"のような形式）
+    const isGeneratedId =
+      cardId && /^(field|hand|deck)-\d+-[a-z0-9]+$/.test(cardId);
+
+    // シールドカードなら裏面でも画像を参照できるようログ出力
+    if (isShield) {
+      console.log(
+        "[Card] シールドカード（裏面）: deckId=",
+        deckId,
+        "cardId=",
+        cardId
+      );
+    }
+
+    // 1. DBに存在するcardIdがある場合は常に直接cardIdのエンドポイントを優先（より信頼性が高い）
+    if (isValidDbId && !isGeneratedId) {
+      console.log("[Card] 永続的なURL（cardIdのみ）を使用: cardId=", cardId);
+      return apiEndpoints.cards.getImageById(cardId);
+    }
+
+    // 2. deckIdとDBに存在するcardIdが両方ある場合、deck経由の永続的なURLを使用 (フォールバック用)
+    if (deckId && isValidDbId && !isGeneratedId) {
+      console.log(
+        "[Card] 永続的なURL（deck経由・フォールバック）を使用: deckId=",
+        deckId,
+        "cardId=",
+        cardId
+      );
       return apiEndpoints.cards.getImage(deckId, cardId);
     }
-    // そうでない場合は従来のimageUrlを使用（後方互換性）
+
+    // 3. imageUrlが絶対パスでIPアドレスを含む場合、現在のホストに書き換え
+    if (imageUrl && imageUrl.match(/^https?:\/\/\d+\.\d+\.\d+\.\d+/)) {
+      try {
+        // URLをパースしてパスを取得
+        const parsedUrl = new URL(imageUrl);
+        // パスからAPIのIDを抽出（例：/api/cards/45/image → 45）
+        const idMatch = parsedUrl.pathname.match(/\/api\/cards\/(\d+)\/image/);
+        if (idMatch && idMatch[1]) {
+          // 抽出したIDで永続的なURLを構築
+          const extractedId = idMatch[1];
+          console.log("[Card] URLからIDを抽出:", extractedId);
+          return apiEndpoints.cards.getImageById(extractedId);
+        }
+
+        // IDが抽出できない場合は現在のホストでURLを再構成
+        const path = parsedUrl.pathname;
+        const newUrl = `${window.location.origin}${path}`;
+        console.log(
+          "[Card] 固定IPを現在のホストに置換:",
+          imageUrl,
+          "→",
+          newUrl
+        );
+        return newUrl;
+      } catch (e) {
+        console.error("[Card] URL解析エラー:", e);
+      }
+    }
+
+    // 4. そうでない場合は従来のimageUrlを使用（後方互換性）
+    console.log("[Card] 従来のimageURLを使用:", imageUrl);
     return imageUrl;
   };
 
@@ -115,8 +183,40 @@ const Card = ({
       }}
     >
       {isFlipped ? (
-        // 🔄 裏面表示
+        // 🔄 裏面表示（URLはプリロードのために維持）
         <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-[8px] rounded">
+          {/* 画像をプリロード（非表示） */}
+          {cardImageUrl && (
+            <img
+              src={cardImageUrl}
+              alt=""
+              style={{ display: "none" }}
+              onError={(e) => {
+                console.error(
+                  "[Card] 裏面表示時に画像の読み込みに失敗:",
+                  cardImageUrl
+                );
+
+                // cardIdがある場合は常に直接cardIdのURLを使用
+                if (cardId && /^\d+$/.test(cardId)) {
+                  const directUrl = apiEndpoints.cards.getImageById(cardId);
+                  console.log(
+                    "[Card] 裏面で直接cardIdによるURLを使用:",
+                    directUrl
+                  );
+                  e.target.src = directUrl;
+                } else {
+                  // フォールバック画像を表示
+                  const fallbackUrl = apiEndpoints.cards.getFallbackImage();
+                  console.log(
+                    "[Card] 裏面でフォールバック画像を使用:",
+                    fallbackUrl
+                  );
+                  e.target.src = fallbackUrl;
+                }
+              }}
+            />
+          )}
           裏面
         </div>
       ) : cardImageUrl ? (
@@ -135,6 +235,33 @@ const Card = ({
             userSelect: "none",
             touchAction: "none",
             pointerEvents: "auto",
+          }}
+          onError={(e) => {
+            console.error(
+              "[Card] 表面表示での画像読み込みエラー:",
+              cardImageUrl
+            );
+
+            // cardIdがある場合のフォールバック処理
+            if (cardId && /^\d+$/.test(cardId)) {
+              // 常に直接cardIdによるエンドポイントを使用（より信頼性が高い）
+              const directUrl = apiEndpoints.cards.getImageById(cardId);
+
+              // 現在のURLがdeck経由の場合は直接cardIdのURLに切り替え
+              if (cardImageUrl.includes(`/decks/${deckId}/cards/`)) {
+                console.log(
+                  "[Card] deck経由URLから直接cardIdURLへ切り替え:",
+                  directUrl
+                );
+                e.target.style.backgroundImage = `url(${directUrl})`;
+                return;
+              }
+            }
+
+            // それでも失敗したらフォールバック画像を表示
+            const fallbackImage = apiEndpoints.cards.getFallbackImage();
+            console.log("[Card] 最終フォールバック画像を使用:", fallbackImage);
+            e.target.style.backgroundImage = `url(${fallbackImage})`;
           }}
         />
       ) : (

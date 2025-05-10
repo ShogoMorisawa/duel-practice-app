@@ -80,6 +80,9 @@ const DraggableCard = ({
         isDraggingRef.current = true;
         console.log("🧪 isDragging", true); // ドラッグ開始時のログ
 
+        // 実際のDBに存在するcardIdを優先的に使用
+        const actualCardId = /^\d+$/.test(cardId) ? cardId : id;
+
         return {
           id,
           name,
@@ -92,7 +95,7 @@ const DraggableCard = ({
           rotation,
           imageUrl, // imageUrlを追加
           deckId,
-          cardId,
+          cardId: actualCardId, // DBのIDを優先
         };
       },
       end: (item, monitor) => {
@@ -129,6 +132,11 @@ const DraggableCard = ({
           isDragging: dragging,
         };
       },
+      options: {
+        dropEffect: "move",
+      },
+      // 山札はドラッグ不可
+      canDrag: () => actualZone !== "deck",
     }),
     [
       id,

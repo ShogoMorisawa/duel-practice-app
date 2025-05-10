@@ -101,16 +101,32 @@ const DeckDetail = () => {
           >
             {card.id ? (
               <img
-                src={apiEndpoints.cards.getImage(deck.id, card.id)}
+                src={apiEndpoints.cards.getImageById(card.id)}
                 alt={card.name || `カード${i + 1}`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.style.display = "none"; // 読み込み失敗したら非表示
                   console.error(
-                    "画像の読み込みに失敗しました:",
-                    apiEndpoints.cards.getImage(deck.id, card.id)
+                    "直接cardIdのURLでの画像読み込みに失敗:",
+                    apiEndpoints.cards.getImageById(card.id)
                   );
+
+                  // まずdeck経由のURLを試す（フォールバック）
+                  try {
+                    const fallbackUrl = apiEndpoints.cards.getImage(
+                      deck.id,
+                      card.id
+                    );
+                    console.log("フォールバックURLを試行:", fallbackUrl);
+                    e.target.src = fallbackUrl;
+                    e.target.onerror = () => {
+                      // deck経由のURLも失敗した場合
+                      console.error("フォールバックURLも失敗:", fallbackUrl);
+                      e.target.style.display = "none"; // 最終的に失敗したら非表示
+                    };
+                  } catch (_) {
+                    // エラー時は非表示
+                    e.target.style.display = "none";
+                  }
                 }}
               />
             ) : card.image_url || card.imageUrl ? (
@@ -119,18 +135,53 @@ const DeckDetail = () => {
                 alt={card.name || `カード${i + 1}`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.style.display = "none"; // 読み込み失敗したら非表示
                   console.error(
-                    "画像の読み込みに失敗しました:",
+                    "従来のimageUrlでの読み込みに失敗:",
                     card.image_url || card.imageUrl
                   );
+
+                  // 固定IPが含まれているか確認
+                  const url = card.image_url || card.imageUrl;
+                  if (url && url.match(/^https?:\/\/\d+\.\d+\.\d+\.\d+/)) {
+                    try {
+                      // URLをパースしてパスを取得し、現在のホストで再構築
+                      const parsedUrl = new URL(url);
+                      const path = parsedUrl.pathname;
+                      const newUrl = `${window.location.origin}${path}`;
+                      console.log("固定IPのURLを動的URLに変換:", newUrl);
+                      e.target.src = newUrl;
+                      return;
+                    } catch (_) {
+                      // URL解析に失敗
+                    }
+                  }
+
+                  // 最終的には非表示に
+                  e.target.style.display = "none";
                 }}
               />
             ) : (
-              <span className="text-xs text-gray-500">
-                {card.name || `カード${i + 1}`}
-              </span>
+              <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                <div className="text-sm font-semibold mb-1 text-gray-700 truncate w-full">
+                  {card.name || `カード${i + 1}`}
+                </div>
+                <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-gray-500">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+              </div>
             )}
           </div>
         ))}

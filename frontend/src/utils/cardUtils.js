@@ -57,7 +57,11 @@ export const createCard = ({
     zone,
     imageUrl,
     deckId,
-    cardId,
+    // cardIdが渡されなかった場合は自動生成されたidを使用
+    cardId:
+      cardId ||
+      id ||
+      `${zone}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
   };
 
   console.log("[createCard] 作成されたカード:", card);

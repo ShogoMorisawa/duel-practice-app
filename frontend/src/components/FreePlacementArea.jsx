@@ -81,9 +81,26 @@ const FreePlacementArea = ({
           );
         }
       },
+      hover: (item, monitor) => {
+        // ホバー状態の処理（必要に応じて）
+        if (!monitor.isOver({ shallow: true })) return;
+      },
+      canDrop: () => {
+        // ドロップ可能かどうかの判定（必要に応じて）
+        return true;
+      },
+      options: {
+        // ドロップエフェクト設定
+        dropEffect: "move",
+        // タッチデバイス向け設定
+        enableTouchEvents: true,
+        enableMouseEvents: true,
+        enableKeyboardEvents: true,
+      },
       collect: (monitor) => ({
         isOver: !!monitor.isOver(),
         canDrop: !!monitor.canDrop(),
+        isOverCurrent: !!monitor.isOver({ shallow: true }),
       }),
     }),
     [onDropCard, onMoveCard]
@@ -125,6 +142,8 @@ const FreePlacementArea = ({
             if (onClickCard) onClickCard(card.id);
           }}
           imageUrl={card.imageUrl}
+          deckId={card.deckId}
+          cardId={card.cardId || card.id}
         />
       ))}
     </div>
