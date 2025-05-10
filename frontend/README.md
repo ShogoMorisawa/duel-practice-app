@@ -1,3 +1,29 @@
+# React Frontend
+
+This is the frontend application for the Dueling Cards App, built with React, Vite, and Tailwind CSS.
+
+## Authentication Features
+
+- ✅ Login functionality with JWT
+- ✅ Auto-insertion of Authorization header via Axios interceptors
+- ✅ User registration form
+- ✅ Logout with API call
+- ✅ Automatic user profile loading on startup when token exists
+- ✅ Protected routes redirecting to login
+
+## Development
+
+```
+npm install
+npm run dev
+```
+
+## Build for production
+
+```
+npm run build
+```
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

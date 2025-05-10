@@ -105,7 +105,6 @@ export const getAbsoluteImageUrl = (relativeUrl) => {
   if (relativeUrl.startsWith("http")) return relativeUrl;
   if (relativeUrl.startsWith("blob:")) return relativeUrl; // blob URLはそのまま返す
 
-
   // 相対パスの場合、APIのホストと結合
   const apiBase = API_BASE_URL.replace(/\/+$/, ""); // 末尾のスラッシュを削除
   const path = relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`;
@@ -144,6 +143,7 @@ export const apiEndpoints = {
     login: () => `${API_PREFIX}/auth/login`,
     register: () => `${API_PREFIX}/auth/register`,
     logout: () => `${API_PREFIX}/auth/logout`,
+    profile: () => `${API_PREFIX}/auth/profile`,
   },
   // デッキ関連
   decks: {
@@ -166,3 +166,21 @@ export const apiEndpoints = {
     create: () => `${API_PREFIX}/uploads`,
   },
 };
+
+// リクエストインターセプターを追加して、すべてのリクエストにAuthorizationヘッダーを自動付与
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// アップロードAPIにも同じインターセプターを適用
+uploadApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
