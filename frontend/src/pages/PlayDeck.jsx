@@ -198,11 +198,9 @@ const isTouchDevice = () => {
 // --- メインコンポーネント ---
 function PlayDeck() {
   const { deckId } = useParams();
+  const isGuestMode = deckId === "guest";
   const navigate = useNavigate();
-  const [state, dispatch] = useReducer(reducer, {
-    ...initialState,
-    error: null, // エラー状態を追加
-  });
+  const [state, dispatch] = useReducer(reducer, initialState);
   const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
   const [activeMode, setActiveMode] = useState(null); // アクティブなモードを一元管理
@@ -236,10 +234,54 @@ function PlayDeck() {
   // 1. デッキデータ取得 Effect
   const fetchDeck = async () => {
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
-    dispatch({ type: ACTIONS.SET_ERROR, payload: null });
 
+    // ゲストモードの場合はサンプルデッキを使用
+    if (isGuestMode) {
+      try {
+        // サンプルデッキ用のデータを作成
+        const sampleDeck = {
+          name: "ゲストサンプルデッキ",
+          cards: Array(40)
+            .fill(null)
+            .map((_, i) => ({
+              id: `sample-${i}`,
+              name: `サンプルカード ${i + 1}`,
+              imageUrl: "/images/sample-card.svg", // サンプル画像パス
+            })),
+        };
+
+        dispatch({ type: ACTIONS.SET_DECK_INFO, payload: sampleDeck });
+
+        // サンプルカードをデッキゾーンに追加
+        sampleDeck.cards.forEach((card, index) => {
+          const uniqueId = `sample-${index}-${Date.now()}`;
+          const newCard = createCard({
+            id: uniqueId,
+            name: card.name,
+            imageUrl: card.imageUrl,
+            zone: "deck",
+            isFlipped: true,
+          });
+          dispatch({ type: ACTIONS.ADD_CARD, payload: newCard });
+        });
+
+        // ローディング終了
+        dispatch({ type: ACTIONS.SET_LOADING, payload: false });
+      } catch (error) {
+        console.error("Error creating sample deck:", error);
+        dispatch({
+          type: ACTIONS.SET_ERROR,
+          payload: { message: "サンプルデッキの作成に失敗しました" },
+        });
+      }
+      return;
+    }
+
+    // 通常モード：APIからデッキを取得
     try {
-      const response = await api.get(apiEndpoints.decks.getOne(deckId));
+      const response = await api.get(apiEndpoints.decks.getOne(deckId), {
+        onAuthError: () => navigate("/login"), // 認証エラー時はログインページへ
+      });
       dispatch({ type: ACTIONS.SET_DECK_INFO, payload: response.data });
       dispatch({ type: ACTIONS.SET_LOADING, payload: false });
     } catch (error) {
@@ -536,8 +578,8 @@ function PlayDeck() {
               再試行
             </button>
             <button
-              onClick={() => navigate("/")}
-              className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+              onClick={() => navigate("/decks")}
             >
               戻る
             </button>
@@ -553,8 +595,8 @@ function PlayDeck() {
           <h2 className="text-xl font-bold mb-2">デッキ情報がありません</h2>
           <p>デッキデータの読み込みに失敗しました。</p>
           <button
-            onClick={() => navigate("/")}
-            className="mt-4 px-4 py-2 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+            className="mt-6 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+            onClick={() => navigate("/decks")}
           >
             デッキ一覧に戻る
           </button>

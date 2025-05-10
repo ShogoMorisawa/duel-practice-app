@@ -38,7 +38,7 @@ export default function Login() {
       }
 
       await login(data.token, data.user);
-      navigate("/");
+      navigate("/decks");
     } catch (err) {
       console.error("Login: Error occurred", err);
       const standardizedError = handleApiError(err, { context: "ログイン" });

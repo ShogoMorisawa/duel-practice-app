@@ -5,12 +5,14 @@ import { TouchBackend } from "react-dnd-touch-backend";
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 
+import Header from "./components/Header";
 import DeckList from "./pages/DeckList";
 import NewDeckForm from "./pages/NewDeckForm";
 import DeckDetail from "./pages/DeckDetail";
 import PlayDeck from "./pages/PlayDeck";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Home from "./pages/Home";
 
 // タッチデバイス判定関数
 const isTouchDevice = () => {
@@ -46,14 +48,20 @@ function App() {
             : undefined
         }
       >
-        <Routes>
-          <Route path="/" element={<DeckList />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/new" element={<NewDeckForm />} />
-          <Route path="/decks/:id" element={<DeckDetail />} />
-          <Route path="/play/:deckId" element={<PlayDeck />} />
-        </Routes>
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <main className="py-4">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/decks" element={<DeckList />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/new" element={<NewDeckForm />} />
+              <Route path="/decks/:id" element={<DeckDetail />} />
+              <Route path="/play/:deckId" element={<PlayDeck />} />
+            </Routes>
+          </main>
+        </div>
       </DndProvider>
     </AuthProvider>
   );

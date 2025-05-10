@@ -262,7 +262,8 @@ const NewDeckForm = () => {
       const newDeckId = response.data.id;
       setDeckId(newDeckId);
       dispatch({ type: "SUBMIT_SUCCESS" });
-      navigate("/");
+      // 成功したらデッキ一覧ページに戻る
+      navigate("/decks");
     } catch (error) {
       const standardizedError = handleApiError(error, {
         context: "デッキ作成",

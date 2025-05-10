@@ -41,7 +41,7 @@ export default function Register() {
 
       // 登録成功後、自動ログイン
       await login(data.token, data.user);
-      navigate("/");
+      navigate("/decks");
     } catch (err) {
       console.error("Register: Error occurred", err);
       const standardizedError = handleApiError(err, {
