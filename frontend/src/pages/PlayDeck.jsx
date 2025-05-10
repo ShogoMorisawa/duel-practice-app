@@ -71,6 +71,9 @@ function reducer(state, action) {
         ...(newZone === "field" && !updatedCard.x ? { x: 0, y: 0 } : {}),
         ...(newZone !== "field" ? { x: undefined, y: undefined } : {}),
         ...newProps,
+        // deckIdとcardIdは常に維持
+        deckId: updatedCard.deckId,
+        cardId: updatedCard.cardId || updatedCard.id,
       };
 
       // ② 対象カードを除いた配列を作成
@@ -114,9 +117,24 @@ function reducer(state, action) {
 
     case ACTIONS.FLIP_CARD: {
       const { id } = action.payload;
+      const cardToFlip = state.cards.find((card) => card.id === id);
+
+      // カードが見つからない場合は何もしない
+      if (!cardToFlip) return state;
+
       const newCards = state.cards.map((card) =>
-        card.id === id ? { ...card, isFlipped: !card.isFlipped } : card
+        card.id === id
+          ? {
+              ...card,
+              isFlipped: !card.isFlipped,
+              // deckIdとcardIdを明示的に維持する
+              deckId: card.deckId,
+              cardId: card.cardId || card.id,
+            }
+          : card
       );
+
+      console.log("[Reducer] Flipping card:", id, "New state:", newCards);
       return { ...state, cards: newCards };
     }
 
@@ -438,7 +456,7 @@ function PlayDeck() {
           y: Math.round(y),
           rotation: item.rotation || 0,
           deckId: deckId,
-          cardId: item.cardId,
+          cardId: item.cardId || item.id, // cardIdがなければitemのidを使用
         });
 
         console.log("[DEBUG] Created field card:", fieldCard);
@@ -523,10 +541,14 @@ function PlayDeck() {
         isMobile
           ? {
               enableMouseEvents: true,
-              delayTouchStart: 0,
+              delayTouchStart: 100, // タッチの認識精度向上のため少し遅延を設定
               delayMouseStart: 0,
-              touchSlop: 0,
+              touchSlop: 5, // 微小なタッチの移動を無視
               ignoreContextMenu: true,
+              enableKeyboardEvents: true,
+              scrollAngleRanges: [
+                { start: 300, end: 60 }, // 上下スクロール時はドラッグを無効化する範囲
+              ],
             }
           : undefined
       }
@@ -542,7 +564,11 @@ function PlayDeck() {
           {/* プレイエリア (FreePlacementArea) */}
           <div className="flex-1 relative mb-1 md:mb-2">
             <FreePlacementArea
-              fieldCards={getCardsByZone(state.cards, "field")}
+              fieldCards={getCardsByZone(state.cards, "field").map((card) => ({
+                ...card,
+                deckId: card.deckId || deckId, // deckIdが存在しない場合は現在のdeckIdを設定
+                cardId: card.cardId || card.id, // cardIdがない場合はcardのidを使用
+              }))}
               onDropCard={handleDropToField}
               onMoveCard={handleMoveFieldCard}
               onClickCard={handleCardClick}
@@ -567,7 +593,11 @@ function PlayDeck() {
           <div className="flex flex-col md:flex-row bg-gray-200 rounded shadow p-1 md:p-2 gap-1 md:gap-2">
             {/* 手札エリア */}
             <HandArea
-              handCards={getCardsByZone(state.cards, "hand")}
+              handCards={getCardsByZone(state.cards, "hand").map((card) => ({
+                ...card,
+                deckId: card.deckId || deckId,
+                cardId: card.cardId || card.id, // cardIdがない場合はcardのidを使用
+              }))}
               onClickCard={handleCardClick}
               onDropFromField={(item) => {
                 dispatch({
@@ -601,6 +631,12 @@ function PlayDeck() {
                       name="山札"
                       isFlipped={true}
                       type="deck"
+                      zone="deck"
+                      deckId={deckId}
+                      cardId={
+                        getCardsByZone(state.cards, "deck")[0]?.cardId ||
+                        getCardsByZone(state.cards, "deck")[0]?.id
+                      }
                     />
                   )}
                 </div>
