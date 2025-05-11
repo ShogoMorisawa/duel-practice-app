@@ -51,7 +51,7 @@ export default function Login() {
   return (
     <div className="max-w-md mx-auto mt-10 p-6">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b-2 border-green-500">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b-2 border-blue-500">
           ログイン
         </h2>
 
@@ -75,7 +75,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="example@example.com"
             />
           </div>
@@ -93,7 +93,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="••••••••"
             />
           </div>
@@ -104,7 +104,7 @@ export default function Login() {
             className={`w-full px-4 py-2 text-white font-medium rounded-md ${
               isLoading
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             }`}
           >
             {isLoading ? "ログイン中..." : "ログイン"}
@@ -113,7 +113,7 @@ export default function Login() {
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
               アカウントをお持ちでないですか？{" "}
-              <Link to="/register" className="text-green-600 hover:underline">
+              <Link to="/register" className="text-blue-600 hover:underline">
                 新規登録
               </Link>
             </p>

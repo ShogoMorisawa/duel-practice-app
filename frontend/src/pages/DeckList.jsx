@@ -1,13 +1,11 @@
 import React, { useEffect, useReducer } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, apiEndpoints, handleApiError } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
 // アクションタイプを定義
 const ACTIONS = {
   SET_DECKS: "set_decks",
-  ADD_DECK: "add_deck",
-  SET_NEW_DECK_NAME: "set_new_deck_name",
   SET_LOADING: "set_loading",
   SET_ERROR: "set_error",
 };
@@ -15,7 +13,6 @@ const ACTIONS = {
 // 初期状態を定義
 const initialState = {
   decks: [],
-  newDeckName: "",
   isLoading: false,
   error: null,
 };
@@ -25,16 +22,6 @@ function reducer(state, action) {
   switch (action.type) {
     case ACTIONS.SET_DECKS:
       return { ...state, decks: action.payload, isLoading: false, error: null };
-    case ACTIONS.ADD_DECK:
-      return {
-        ...state,
-        decks: [...state.decks, action.payload],
-        newDeckName: "",
-        isLoading: false,
-        error: null,
-      };
-    case ACTIONS.SET_NEW_DECK_NAME:
-      return { ...state, newDeckName: action.payload };
     case ACTIONS.SET_LOADING:
       return { ...state, isLoading: action.payload, error: null };
     case ACTIONS.SET_ERROR:
@@ -67,25 +54,6 @@ const DeckList = () => {
     fetchDecks();
   }, []);
 
-  // 新規デッキの追加
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!state.newDeckName.trim()) return;
-
-    dispatch({ type: ACTIONS.SET_LOADING, payload: true });
-    try {
-      const res = await api.post(apiEndpoints.decks.create(), {
-        name: state.newDeckName,
-      });
-      dispatch({ type: ACTIONS.ADD_DECK, payload: res.data });
-    } catch (error) {
-      const standardizedError = handleApiError(error, {
-        context: "デッキ作成",
-      });
-      dispatch({ type: ACTIONS.SET_ERROR, payload: standardizedError });
-    }
-  };
-
   // デッキの削除
   const handleDelete = async (e, id) => {
     e.preventDefault();
@@ -106,108 +74,153 @@ const DeckList = () => {
     }
   };
 
+  // サムネイル画像のURLを取得する関数
+  const getThumbnailUrl = (deck) => {
+    if (deck.cards && deck.cards.length > 0 && deck.cards[0].imageUrl) {
+      return deck.cards[0].imageUrl;
+    }
+    // デフォルト画像
+    return "/images/default-card.jpg";
+  };
+
   return (
     <div className="max-w-6xl px-4 py-8 mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">デッキ一覧</h1>
-        <div className="text-sm text-gray-500">{state.decks.length} デッキ</div>
-      </div>
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b-2 border-blue-500">
+          デッキ一覧
+        </h2>
 
-      {/* エラー表示 */}
-      {state.error && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded-md text-red-700">
-          <p className="font-medium">エラーが発生しました</p>
-          <p>{state.error.message}</p>
-          <button
-            onClick={fetchDecks}
-            className="mt-2 px-3 py-1 bg-red-100 border border-red-500 rounded-md hover:bg-red-200 text-sm"
-          >
-            再試行
-          </button>
-        </div>
-      )}
-
-      {/* ログイン済みユーザーのみデッキ作成フォームを表示 */}
-      {isAuthenticated ? (
-        <form
-          onSubmit={handleSubmit}
-          className="p-6 mb-8 bg-white border rounded-lg shadow-sm"
-        >
-          <input
-            type="text"
-            value={state.newDeckName}
-            onChange={(e) =>
-              dispatch({
-                type: ACTIONS.SET_NEW_DECK_NAME,
-                payload: e.target.value,
-              })
-            }
-            placeholder="新しいデッキ名"
-            className="flex-1 px-4 py-2 mb-2 border border-gray-300 rounded-md sm:mb-0 sm:mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={state.isLoading}
-          />
-          <button
-            type="submit"
-            className={`flex items-center justify-center px-4 py-2 font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
-              state.isLoading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            disabled={state.isLoading || !state.newDeckName.trim()}
-          >
-            {state.isLoading ? "処理中..." : "追加"}
-          </button>
-        </form>
-      ) : (
-        <div className="p-6 mb-8 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-blue-700 mb-2">
-            デッキを作成するにはログインが必要です
-          </p>
-          <button
-            onClick={() => navigate("/login")}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            ログインする
-          </button>
-        </div>
-      )}
-
-      {/* ローディング表示 */}
-      {state.isLoading && (
-        <div className="flex justify-center items-center my-6">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-          <span className="ml-2 text-gray-600">読み込み中...</span>
-        </div>
-      )}
-
-      {/* デッキがない場合の表示 */}
-      {!state.isLoading && state.decks.length === 0 && !state.error && (
-        <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-lg">
-          <p className="mb-2 text-xl font-medium text-gray-700">
-            デッキがありません
-          </p>
-          <p className="text-gray-500">最初のデッキを作成しましょう！</p>
-        </div>
-      )}
-
-      {/* デッキ一覧 */}
-      <ul>
-        {state.decks.map((deck) => (
-          <li key={deck.id} className="block p-4 cursor-pointer">
-            <NavLink
-              to={`/decks/${deck.id}`}
-              className="mb-2 text-lg font-semibold text-gray-800 truncate"
-            >
-              {deck.name}
-            </NavLink>
+        {/* エラー表示 */}
+        {state.error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded-md text-red-700">
+            <p className="font-medium">エラーが発生しました</p>
+            <p>{state.error.message}</p>
             <button
-              onClick={(e) => handleDelete(e, deck.id)}
-              className="p-1 text-gray-400 rounded-full hover:bg-gray-100 hover:text-red-500 focus:outline-none"
-              disabled={state.isLoading}
+              onClick={fetchDecks}
+              className="mt-2 px-3 py-1 bg-red-100 border border-red-500 rounded-md hover:bg-red-200 text-sm"
             >
-              削除
+              再試行
             </button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        )}
+
+        {/* ログイン済みユーザーのみ新規デッキ作成ボタンを表示 */}
+        {isAuthenticated ? (
+          <div className="mb-8 text-center">
+            <Link
+              to="/new"
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 shadow-md transition-colors"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              新規デッキを作成
+            </Link>
+          </div>
+        ) : (
+          <div className="p-6 mb-8 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-700 mb-2">
+              デッキを作成するにはログインが必要です
+            </p>
+            <button
+              onClick={() => navigate("/login")}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              ログインする
+            </button>
+          </div>
+        )}
+
+        {/* ローディング表示 */}
+        {state.isLoading && (
+          <div className="flex justify-center items-center my-6">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <span className="ml-2 text-gray-600">読み込み中...</span>
+          </div>
+        )}
+
+        {/* デッキがない場合の表示 */}
+        {!state.isLoading && state.decks.length === 0 && !state.error && (
+          <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-lg">
+            <p className="mb-2 text-xl font-medium text-gray-700">
+              デッキがありません
+            </p>
+            <p className="text-gray-500">最初のデッキを作成しましょう！</p>
+          </div>
+        )}
+
+        {/* デッキ一覧（カードグリッド） */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {state.decks.map((deck) => (
+            <div
+              key={deck.id}
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col"
+            >
+              <div className="relative h-48 bg-gray-200">
+                <img
+                  src={getThumbnailUrl(deck)}
+                  alt={deck.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = "/images/default-card.jpg";
+                  }}
+                />
+              </div>
+              <div className="p-5 flex flex-col flex-grow">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 truncate">
+                  {deck.name}
+                </h3>
+                <div className="mt-auto flex justify-between space-x-3 pt-3">
+                  <Link
+                    to={`/decks/${deck.id}`}
+                    className="flex-1 px-3 py-2 bg-blue-500 text-white text-center rounded-md hover:bg-blue-600 transition-colors text-sm font-medium"
+                  >
+                    詳細
+                  </Link>
+                  <Link
+                    to={`/play/${deck.id}`}
+                    className="flex-1 px-3 py-2 bg-green-500 text-white text-center rounded-md hover:bg-green-600 transition-colors text-sm font-medium"
+                  >
+                    プレイ
+                  </Link>
+                  <button
+                    onClick={(e) => handleDelete(e, deck.id)}
+                    className="px-3 py-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors"
+                    disabled={state.isLoading}
+                    aria-label="削除"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
