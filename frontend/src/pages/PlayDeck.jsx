@@ -199,12 +199,13 @@ const isTouchDevice = () => {
 // --- メインコンポーネント ---
 function PlayDeck() {
   const { deckId } = useParams();
-  const isGuestMode = deckId === "guest";
+  const isGuestMode = deckId === "guest" || deckId.startsWith("guest-");
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, initialState);
   const initialized = useRef(false); // 初期化処理が実行されたかどうかのフラグ
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
   const [activeMode, setActiveMode] = useState(null); // アクティブなモードを一元管理
+  const [isShuffling, setIsShuffling] = useState(false); // シャッフルアニメーション状態
 
   // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
   const ensureAbsoluteUrl = (url) => {
@@ -236,43 +237,51 @@ function PlayDeck() {
   const fetchDeck = async () => {
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
 
-    // ゲストモードの場合はサンプルデッキを使用
+    // ゲストモードの場合はJSONファイルからデッキを取得
     if (isGuestMode) {
       try {
-        // サンプルデッキ用のデータを作成
-        const sampleDeck = {
-          name: "ゲストサンプルデッキ",
-          cards: Array(40)
-            .fill(null)
-            .map((_, i) => ({
-              id: `sample-${i}`,
-              name: `サンプルカード ${i + 1}`,
-              imageUrl: "/images/sample-card.svg", // サンプル画像パス
-            })),
-        };
+        // ゲストデッキのIDを抽出（guest-deck-1などの形式）
+        let guestDeckId = deckId;
 
-        dispatch({ type: ACTIONS.SET_DECK_INFO, payload: sampleDeck });
+        // deckIdがすでにguest-で始まっていなければ、プレフィックスを追加
+        if (!guestDeckId.startsWith("guest-")) {
+          guestDeckId = `guest-${guestDeckId}`;
+        }
 
-        // サンプルカードをデッキゾーンに追加
-        sampleDeck.cards.forEach((card, index) => {
-          const uniqueId = `sample-${index}-${Date.now()}`;
-          const newCard = createCard({
-            id: uniqueId,
-            name: card.name,
-            imageUrl: card.imageUrl,
-            zone: "deck",
-            isFlipped: true,
-          });
-          dispatch({ type: ACTIONS.ADD_CARD, payload: newCard });
-        });
+        console.log("[PlayDeck] 使用するゲストデッキID:", guestDeckId);
 
-        // ローディング終了
+        // ゲストデッキのJSONを取得
+        const response = await fetch("/data/guestDecks.json");
+        if (!response.ok) {
+          throw new Error("ゲストデッキの取得に失敗しました");
+        }
+
+        const guestDecks = await response.json();
+        console.log(
+          "[PlayDeck] 取得したゲストデッキ一覧:",
+          guestDecks.map((d) => d.id)
+        );
+
+        const selectedDeck = guestDecks.find((deck) => deck.id === guestDeckId);
+
+        if (!selectedDeck) {
+          throw new Error(
+            `指定されたゲストデッキが見つかりません: ${guestDeckId}`
+          );
+        }
+
+        console.log("[PlayDeck] ゲストデッキ情報をセットします:", selectedDeck);
+        dispatch({ type: ACTIONS.SET_DECK_INFO, payload: selectedDeck });
+
+        // ゲストモードではここでカードを追加せず、初期化Effectで統一的に配置する
         dispatch({ type: ACTIONS.SET_LOADING, payload: false });
       } catch (error) {
-        console.error("Error creating sample deck:", error);
+        console.error("Error loading guest deck:", error);
         dispatch({
           type: ACTIONS.SET_ERROR,
-          payload: { message: "サンプルデッキの作成に失敗しました" },
+          payload: {
+            message: error.message || "ゲストデッキの読み込みに失敗しました",
+          },
         });
       }
       return;
@@ -313,16 +322,19 @@ function PlayDeck() {
       state.deckInfo &&
       state.deckInfo.cards &&
       state.deckInfo.cards.length > 0 &&
-      fieldSize.width > 0 // フィールドサイズが取得されていることを確認
+      fieldSize.width > 0 && // フィールドサイズが取得されていることを確認
+      state.cards.length === 0 // カードが追加されていない場合のみ実行（重複防止）
     ) {
       console.log("[PlayDeck] 初期化開始");
       console.log("[PlayDeck] デッキ情報:", state.deckInfo);
       console.log("[PlayDeck] フィールドサイズ:", fieldSize);
+      console.log("[PlayDeck] カード枚数:", state.deckInfo.cards.length);
 
       // --- このブロックは初回のみ実行 ---
       initialized.current = true; // フラグを立てて再実行を防ぐ
 
       const cardDataList = [...state.deckInfo.cards];
+      console.log("[PlayDeck] カードデータリスト:", cardDataList.length);
 
       // シャッフル
       for (let i = cardDataList.length - 1; i > 0; i--) {
@@ -331,8 +343,8 @@ function PlayDeck() {
       }
 
       // シールドカード
-      const initialShield = cardDataList.slice(0, 5).map((cardData, i) =>
-        createCard({
+      const initialShield = cardDataList.slice(0, 5).map((cardData, i) => {
+        const card = createCard({
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
             ? ensureAbsoluteUrl(cardData.imageUrl)
@@ -344,12 +356,14 @@ function PlayDeck() {
           rotation: 0,
           deckId: deckId,
           cardId: cardData.id,
-        })
-      );
+        });
+        console.log("[PlayDeck] シールドカード作成:", card);
+        return card;
+      });
 
       // 手札カード
-      const initialHand = cardDataList.slice(5, 10).map((cardData) =>
-        createCard({
+      const initialHand = cardDataList.slice(5, 10).map((cardData) => {
+        const card = createCard({
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
             ? ensureAbsoluteUrl(cardData.imageUrl)
@@ -358,12 +372,14 @@ function PlayDeck() {
           isFlipped: false,
           deckId: deckId,
           cardId: cardData.id,
-        })
-      );
+        });
+        console.log("[PlayDeck] 手札カード作成:", card);
+        return card;
+      });
 
       // 山札カード
-      const deckCards = cardDataList.slice(10).map((cardData) =>
-        createCard({
+      const deckCards = cardDataList.slice(10).map((cardData) => {
+        const card = createCard({
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
             ? ensureAbsoluteUrl(cardData.imageUrl)
@@ -372,16 +388,24 @@ function PlayDeck() {
           isFlipped: true,
           deckId: deckId,
           cardId: cardData.id,
-        })
+        });
+        console.log("[PlayDeck] 山札カード作成:", card);
+        return card;
+      });
+
+      console.log(
+        "[PlayDeck] カード追加開始 - 合計枚数:",
+        initialShield.length + initialHand.length + deckCards.length
       );
 
       // 一括でカードを追加
       [...initialShield, ...initialHand, ...deckCards].forEach((card) => {
-        console.log("[PlayDeck] カード追加:", card);
         dispatch({ type: ACTIONS.ADD_CARD, payload: card });
       });
+
+      console.log("[PlayDeck] カード追加完了");
     }
-  }, [state.deckInfo, fieldSize, deckId]); // fieldSizeを依存配列に追加
+  }, [state.deckInfo, fieldSize, deckId, state.cards.length]);
 
   // --- コールバック関数 ---
 
@@ -403,7 +427,19 @@ function PlayDeck() {
   // 山札シャッフル
   const handleShuffleDeck = useCallback(() => {
     if (getCardsByZone(state.cards, "deck").length <= 1) return;
-    dispatch({ type: ACTIONS.SHUFFLE_DECK });
+
+    // シャッフルアニメーション開始
+    setIsShuffling(true);
+
+    // アニメーション終了後に実際のシャッフル処理を実行
+    setTimeout(() => {
+      dispatch({ type: ACTIONS.SHUFFLE_DECK });
+
+      // アニメーション状態をリセット
+      setTimeout(() => {
+        setIsShuffling(false);
+      }, 300);
+    }, 500);
   }, [state.cards]);
 
   // カードを引く
@@ -655,6 +691,7 @@ function PlayDeck() {
                 }))}
                 onClickCard={handleCardClick}
                 activeMode={activeMode}
+                isShuffling={isShuffling}
                 onDropFromField={(item) => {
                   dispatch({
                     type: ACTIONS.MOVE_CARD_ZONE,
@@ -672,14 +709,20 @@ function PlayDeck() {
             </div>
 
             {/* 山札＆シャッフル */}
-            <div className="flex-shrink-0 md:w-[200px] flex items-center justify-center p-1 gap-2 bg-gray-300 rounded border border-gray-400">
+            <div className="flex-shrink-0 md:w-[240px] lg:w-[280px] flex items-center justify-center p-1 gap-2 bg-gray-300 rounded border border-gray-400">
               {/* 山札 */}
               <div className="flex flex-col items-center">
-                <div className="text-[10px] text-gray-600 mb-1">
+                <div
+                  className={`text-[10px] ${
+                    isShuffling ? "text-purple-600 font-bold" : "text-gray-600"
+                  } mb-1 transition-colors duration-300`}
+                >
                   残り {getCardsByZone(state.cards, "deck").length} 枚
                 </div>
                 <div
-                  className="relative cursor-pointer"
+                  className={`relative cursor-pointer ${
+                    isShuffling ? "animate-bounce" : ""
+                  }`}
                   onClick={handleDrawCard}
                 >
                   {getCardsByZone(state.cards, "deck").length > 0 && (
@@ -700,7 +743,7 @@ function PlayDeck() {
               </div>
 
               {/* ボタンWrapper */}
-              <div className="grid grid-cols-2 w-[160px] h-[120px] gap-1">
+              <div className="grid grid-cols-2 w-[160px] md:w-[180px] h-[120px] gap-1">
                 <button
                   className={`text-[10px] px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
                     isModeActive("deckTop")
@@ -725,13 +768,27 @@ function PlayDeck() {
                   </span>
                 </button>
                 <button
-                  className="bg-white text-[10px] px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
+                  className={`text-[10px] px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100 
+                    ${
+                      isShuffling
+                        ? "bg-purple-100 animate-pulse"
+                        : "bg-white hover:bg-purple-50"
+                    }`}
                   onClick={handleShuffleDeck}
-                  disabled={getCardsByZone(state.cards, "deck").length <= 1}
+                  disabled={
+                    getCardsByZone(state.cards, "deck").length <= 1 ||
+                    isShuffling
+                  }
                   aria-label="山札をシャッフル"
                 >
-                  <span className="text-base">🔀</span>
-                  <span className="whitespace-nowrap">シャッフル</span>
+                  <span
+                    className={`text-base ${isShuffling ? "animate-spin" : ""}`}
+                  >
+                    🔀
+                  </span>
+                  <span className="whitespace-nowrap">
+                    {isShuffling ? "シャッフル中..." : "シャッフル"}
+                  </span>
                 </button>
                 <button
                   className={`text-[10px] px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
@@ -759,7 +816,7 @@ function PlayDeck() {
                 <button
                   className={`text-[10px] px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
                     isModeActive("flip")
-                      ? "bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-600"
+                      ? "bg-blue-400 hover:bg-blue-500 text-white border-blue-600"
                       : "bg-white hover:bg-purple-50 border-gray-100"
                   }`}
                   onClick={() => activateMode("flip")}

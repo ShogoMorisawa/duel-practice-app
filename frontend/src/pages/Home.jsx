@@ -71,7 +71,7 @@ const Home = () => {
                   ログインして始める
                 </button>
                 <button
-                  onClick={() => navigate("/play/guest")}
+                  onClick={() => navigate("/decks")}
                   className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-bold py-4 px-8 rounded-lg shadow-md transition-colors text-lg flex items-center justify-center"
                 >
                   <svg
@@ -168,7 +168,7 @@ const Home = () => {
                 </Link>
               ) : (
                 <Link
-                  to="/play/guest"
+                  to="/decks"
                   className="inline-flex items-center text-blue-700 hover:text-blue-800 font-medium"
                 >
                   ログインせずに遊ぶ

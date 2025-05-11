@@ -58,6 +58,8 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/new" element={<NewDeckForm />} />
               <Route path="/decks/:id" element={<DeckDetail />} />
+              <Route path="/decks/guest/:id" element={<DeckDetail />} />
+              <Route path="/play/guest/:deckId" element={<PlayDeck />} />
               <Route path="/play/:deckId" element={<PlayDeck />} />
             </Routes>
           </main>

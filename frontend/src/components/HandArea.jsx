@@ -9,8 +9,15 @@ import Card from "./Card";
  * @param {function} props.onClickCard カードをクリックしたときの処理
  * @param {function} props.onDropFromField フィールドからのカードを受け取ったときの処理
  * @param {string} props.activeMode 現在のアクティブなモード
+ * @param {boolean} props.isShuffling シャッフル中かどうか
  */
-const HandArea = ({ handCards, onClickCard, onDropFromField, activeMode }) => {
+const HandArea = ({
+  handCards,
+  onClickCard,
+  onDropFromField,
+  activeMode,
+  isShuffling,
+}) => {
   const [{ isOver }, dropRef] = useDrop({
     accept: "CARD",
     drop: (item) => {
@@ -25,6 +32,7 @@ const HandArea = ({ handCards, onClickCard, onDropFromField, activeMode }) => {
 
   // モードメッセージの取得
   const getModeMessage = () => {
+    if (isShuffling) return "シャッフル中...";
     if (!activeMode) return null;
 
     const messages = {
@@ -62,18 +70,36 @@ const HandArea = ({ handCards, onClickCard, onDropFromField, activeMode }) => {
         </div>
       )}
 
-      {/* モード中のメッセージ表示 - 手札エリア内下部 */}
-      {activeMode && (
-        <div className="sticky left-0 right-0 bottom-0 min-w-full text-sm text-blue-700 font-semibold text-center bg-blue-100 bg-opacity-90 py-1 border-t border-blue-200 whitespace-normal">
-          {getModeMessage()}
+      {/* 常に表示される操作ガイド */}
+      <div
+        className={`sticky left-0 right-0 bottom-0 min-w-full text-xs ${
+          isShuffling
+            ? "text-purple-700 bg-purple-100"
+            : "text-blue-700 bg-blue-100"
+        } font-semibold text-center bg-opacity-90 py-1 border-t ${
+          isShuffling ? "border-purple-200" : "border-blue-200"
+        } whitespace-normal flex justify-center items-center transition-colors duration-300`}
+      >
+        <div className="text-center">
+          {activeMode || isShuffling ? (
+            getModeMessage()
+          ) : (
+            <>
+              自由にカードをドラッグ＆ドロップ。
+              <span className="md:inline hidden">&nbsp;</span>
+              <br className="md:hidden" />
+              カードをタップして90度回転できます。
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
 
 HandArea.defaultProps = {
   activeMode: null,
+  isShuffling: false,
 };
 
 export default HandArea;
