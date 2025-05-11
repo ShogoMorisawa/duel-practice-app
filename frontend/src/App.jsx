@@ -41,9 +41,10 @@ function App() {
                 enableMouseEvents: true,
                 delayTouchStart: 0,
                 delayMouseStart: 0,
-                touchSlop: 1,
+                touchSlop: 0,
                 ignoreContextMenu: true,
                 enableKeyboardEvents: true,
+                scrollAngleRanges: [{ start: 330, end: 30 }],
               }
             : undefined
         }

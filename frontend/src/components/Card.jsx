@@ -183,7 +183,7 @@ const Card = ({
       ref={dragRef}
       className={`${baseClasses} ${dragClasses} ${clickClasses} ${flipClasses} ${dragableClasses}`}
       onClick={onClick}
-      draggable={actualZone !== "deck"}
+      draggable={false}
       style={{
         transform: `rotate(${rotation}deg)`,
         touchAction: "none",

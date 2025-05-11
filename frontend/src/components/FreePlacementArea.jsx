@@ -112,7 +112,7 @@ const FreePlacementArea = ({
   return (
     <div
       ref={combinedRef}
-      className={`free-placement-area relative w-full h-full rounded-lg overflow-hidden ${
+      className={`free-placement-area relative w-full h-full rounded-lg overflow-auto ${
         isOver ? "bg-green-200" : "bg-green-100"
       }`}
       style={{
