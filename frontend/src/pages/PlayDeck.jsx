@@ -452,7 +452,23 @@ function PlayDeck() {
   // カードのクリック処理（フィールド・手札共通）
   const handleCardClick = useCallback(
     (cardId) => {
+      console.log(
+        "[DEBUG] PlayDeck.handleCardClick called with cardId:",
+        cardId
+      );
+
       const card = state.cards.find((card) => card.id === cardId);
+
+      if (!card) {
+        console.error("[ERROR] Card not found with id:", cardId);
+        console.log(
+          "[DEBUG] Available cards:",
+          state.cards.map((c) => ({ id: c.id, zone: c.zone }))
+        );
+        return;
+      }
+
+      console.log("[DEBUG] Found card:", card);
 
       // 裏返しモードの場合
       if (

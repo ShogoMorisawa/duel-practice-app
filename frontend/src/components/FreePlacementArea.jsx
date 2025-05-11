@@ -118,7 +118,8 @@ const FreePlacementArea = ({
       style={{
         minHeight: "200px",
         border: isOver ? "2px solid #4ade80" : "2px dashed #ccc",
-        touchAction: "manipulation",
+        touchAction: "none",
+        WebkitOverflowScrolling: "touch",
       }}
     >
       {/* fieldCardsを全部表示 */}
@@ -137,10 +138,16 @@ const FreePlacementArea = ({
           onMove={onMoveCard}
           onClick={() => {
             console.log(
-              "[DEBUG] DraggableCard clicked, calling onClickCard with id:",
+              "[DEBUG] DraggableCard onClick triggered in FreePlacementArea for card:",
               card.id
             );
-            if (onClickCard) onClickCard(card.id);
+            if (onClickCard) {
+              onClickCard(card.id);
+            } else {
+              console.error(
+                "[ERROR] onClickCard is not defined in FreePlacementArea"
+              );
+            }
           }}
           imageUrl={card.imageUrl}
           deckId={card.deckId}
