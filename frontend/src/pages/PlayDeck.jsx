@@ -650,7 +650,7 @@ function PlayDeck() {
               enableMouseEvents: true,
               delayTouchStart: 0, // タッチの遅延をなくす
               delayMouseStart: 0,
-              touchSlop: 1, // 微小なタッチの移動を許容
+              touchSlop: 0, // 微小なタッチの移動を許容
               ignoreContextMenu: true,
               enableKeyboardEvents: true,
               scrollAngleRanges: [

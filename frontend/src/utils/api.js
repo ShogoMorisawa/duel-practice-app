@@ -1,6 +1,11 @@
 // APIのベースURLを動的に設定
 const getApiBaseUrl = () => {
-  // 常に現在のウィンドウのホスト名を使用
+  // 環境変数が設定されていればそれを使用
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // 環境変数がない場合は現在のウィンドウのホスト名を使用（開発環境用）
   const host = window.location.hostname;
   const port = "3000"; // APIのポートは固定
   return `${window.location.protocol}//${host}:${port}`;
