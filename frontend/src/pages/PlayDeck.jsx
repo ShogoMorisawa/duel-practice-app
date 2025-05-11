@@ -608,16 +608,16 @@ function PlayDeck() {
 
         console.log("[DEBUG] Created field card:", fieldCard);
 
-        // 手札のカードを非表示にする
-        dispatch({
-          type: ACTIONS.REMOVE_CARD,
-          payload: { id: item.id },
-        });
-
-        // 新しいフィールドカードを追加
+        // 新しいフィールドカードを追加（先に追加する）
         dispatch({
           type: ACTIONS.ADD_CARD,
           payload: fieldCard,
+        });
+
+        // 手札のカードを削除（後で削除する）
+        dispatch({
+          type: ACTIONS.REMOVE_CARD,
+          payload: { id: item.id },
         });
       } else if (isFieldCard) {
         // フィールド上のカードが移動した場合

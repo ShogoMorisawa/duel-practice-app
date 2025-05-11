@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { useDrop } from "react-dnd";
 import Card from "./Card";
+import DraggableCard from "./DraggableCard";
 
 /**
  * 手札エリア
@@ -133,6 +134,15 @@ const HandArea = ({
     dropRef(el);
   };
 
+  // 手札カードの位置計算（DraggableCardに必要なx,yを計算）
+  const getCardPosition = (index) => {
+    const spacing = 60; // カード間の間隔
+    return {
+      x: 10 + index * spacing, // 左から順に配置
+      y: 10, // 上からの位置
+    };
+  };
+
   // モードメッセージの取得
   const getModeMessage = () => {
     if (isShuffling) return "シャッフル中...";
@@ -150,54 +160,72 @@ const HandArea = ({
   return (
     <div
       ref={setCombinedRef}
-      className={`hand-area w-full md:flex-1 h-32 max-w-full overflow-x-auto overflow-y-hidden whitespace-nowrap px-2 py-1 rounded border relative ${
+      className={`hand-area w-full md:flex-1 h-32 max-w-full overflow-hidden whitespace-nowrap px-0 pt-1 rounded border relative ${
         isOver ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
       }`}
-      style={{ touchAction: "pan-x" }}
     >
-      {handCards.map((card) => (
-        <div key={card.id} className="inline-block mr-2">
-          <Card
-            id={card.id}
-            name={card.name}
-            cost={card.cost}
-            isFlipped={card.isFlipped}
-            zone="hand"
-            imageUrl={card.imageUrl}
-            deckId={card.deckId}
-            cardId={card.cardId}
-            onClick={() => onClickCard && onClickCard(card.id)}
-            draggable={false}
-          />
-        </div>
-      ))}
-      {handCards.length === 0 && (
-        <div className="h-full w-full flex items-center justify-center text-gray-500 italic">
-          手札がありません
-        </div>
-      )}
+      {/* カードエリア - カードだけを配置 */}
+      <div className="h-[calc(100%-24px)] px-2 relative">
+        {handCards.length === 0 ? (
+          <div className="h-full w-full flex items-center justify-center text-gray-500 italic">
+            手札がありません
+          </div>
+        ) : (
+          handCards.map((card, index) => {
+            const position = getCardPosition(index);
+            return (
+              <DraggableCard
+                key={card.id}
+                id={card.id}
+                name={card.name}
+                cost={card.cost}
+                isFlipped={card.isFlipped}
+                type="hand"
+                zone="hand"
+                x={position.x}
+                y={position.y}
+                rotation={card.rotation || 0}
+                onClick={() => onClickCard && onClickCard(card.id)}
+                onMove={() => {}} // 手札内ではonMove不要だが必須プロパティ
+                imageUrl={card.imageUrl}
+                deckId={card.deckId}
+                cardId={card.cardId}
+              />
+            );
+          })
+        )}
+      </div>
 
-      {/* 常に表示される操作ガイド */}
+      {/* テキスト部分 - スクロール可能エリア */}
       <div
-        className={`sticky left-0 right-0 bottom-0 min-w-full text-xs ${
+        className={`h-[24px] w-full text-xs ${
           isShuffling
             ? "text-purple-700 bg-purple-100"
             : "text-blue-700 bg-blue-100"
-        } font-semibold text-center bg-opacity-90 py-1 border-t ${
+        } font-semibold border-t ${
           isShuffling ? "border-purple-200" : "border-blue-200"
-        } whitespace-normal flex justify-center items-center transition-colors duration-300`}
+        } flex items-center`}
       >
-        <div className="text-center">
-          {activeMode || isShuffling ? (
-            getModeMessage()
-          ) : (
-            <>
-              自由にカードをドラッグ＆ドロップ。
-              <span className="md:inline hidden">&nbsp;</span>
-              <br className="md:hidden" />
-              カードをタップして90度回転できます。
-            </>
-          )}
+        {/* スクロールコンテナ */}
+        <div
+          className="w-full h-full overflow-x-auto overflow-y-hidden touch-pan-x"
+          style={{ WebkitOverflowScrolling: "touch" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* スクロール可能なコンテンツ */}
+          <div className="whitespace-nowrap px-2 py-1 min-w-max inline-block">
+            {activeMode || isShuffling ? (
+              getModeMessage()
+            ) : (
+              <span>
+                自由にカードをドラッグ＆ドロップ。
+                <span className="mx-1"></span>
+                カードをタップして90度回転できます。
+                <span className="mx-3"></span>
+                ←このテキストは横にスクロールできます→
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

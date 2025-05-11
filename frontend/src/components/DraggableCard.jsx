@@ -286,6 +286,12 @@ const DraggableCard = ({
       handArea.classList.remove("hand-area-hover");
     }
 
+    // フィールドエリアのホバー状態をリセット
+    const fieldArea = document.querySelector(".free-placement-area");
+    if (fieldArea) {
+      fieldArea.classList.remove("field-area-hover");
+    }
+
     // ドラッグしていた場合はドラッグ終了処理
     if (wasDragging) {
       const touch = e.changedTouches[0];
@@ -298,8 +304,80 @@ const DraggableCard = ({
         const newX = Math.round(currentPos.current.x + deltaX);
         const newY = Math.round(currentPos.current.y + deltaY);
 
+        // 手札からフィールドへのドラッグ処理（スマホ用）
+        if (
+          actualZone === "hand" &&
+          window.lastFieldDropPosition &&
+          window.lastFieldDropPosition.isOver
+        ) {
+          console.log("📱 Card dropped from hand to field area:", id);
+
+          // フィールドエリアの参照を取得
+          const fieldArea = document.querySelector(".free-placement-area");
+          if (fieldArea) {
+            try {
+              // フィールドエリアにドロップイベントを手動発火
+              const dropEvent = new CustomEvent("mobile-hand-to-field-drop", {
+                detail: {
+                  cardId: id,
+                  cardData: {
+                    id,
+                    name,
+                    cost,
+                    isFlipped,
+                    zone: actualZone,
+                    type: actualZone,
+                    imageUrl,
+                    deckId,
+                    cardId: cardId || id,
+                    x: window.lastFieldDropPosition.x,
+                    y: window.lastFieldDropPosition.y,
+                    rotation: rotation || 0,
+                  },
+                },
+              });
+              fieldArea.dispatchEvent(dropEvent);
+
+              // ドロップ成功したので視覚的フィードバック
+              const feedback = document.createElement("div");
+              feedback.className = "drop-feedback";
+              feedback.style.position = "fixed";
+              feedback.style.left = `${touch.clientX}px`;
+              feedback.style.top = `${touch.clientY}px`;
+              feedback.style.width = "20px";
+              feedback.style.height = "20px";
+              feedback.style.borderRadius = "50%";
+              feedback.style.backgroundColor = "rgba(74, 222, 128, 0.6)";
+              feedback.style.transform = "translate(-50%, -50%)";
+              feedback.style.zIndex = "10000";
+              document.body.appendChild(feedback);
+
+              // フィードバックアニメーション
+              setTimeout(() => {
+                feedback.style.opacity = "0";
+                feedback.style.transform = "translate(-50%, -50%) scale(2)";
+              }, 10);
+
+              // フィードバック要素を削除
+              setTimeout(() => {
+                if (feedback.parentNode) {
+                  feedback.parentNode.removeChild(feedback);
+                }
+              }, 500);
+
+              // グローバル変数をリセット
+              window.lastFieldDropPosition = null;
+              return;
+            } catch (err) {
+              console.error(
+                "📱 Error dispatching hand-to-field drop event:",
+                err
+              );
+            }
+          }
+        }
+
         // 手札エリアへのドロップをチェック
-        const handArea = document.querySelector(".hand-area");
         if (handArea) {
           const handRect = handArea.getBoundingClientRect();
 
@@ -548,6 +626,38 @@ const DraggableCard = ({
       handArea.classList.add("hand-area-hover");
     } else {
       handArea.classList.remove("hand-area-hover");
+    }
+
+    // FreePlacementAreaのチェック（手札からフィールドへの移動時）
+    if (actualZone === "hand") {
+      const fieldArea = document.querySelector(".free-placement-area");
+      if (fieldArea) {
+        const fieldRect = fieldArea.getBoundingClientRect();
+        const isOverFieldArea =
+          x >= fieldRect.left &&
+          x <= fieldRect.right &&
+          y >= fieldRect.top &&
+          y <= fieldRect.bottom;
+
+        // フィールドエリア上でのホバー状態を視覚的に表示
+        if (isOverFieldArea) {
+          fieldArea.classList.add("field-area-hover");
+
+          // フィールド位置を計算して、グローバル変数に格納
+          if (typeof window !== "undefined") {
+            window.lastFieldDropPosition = {
+              x: x - fieldRect.left,
+              y: y - fieldRect.top,
+              isOver: true,
+            };
+          }
+        } else {
+          fieldArea.classList.remove("field-area-hover");
+          if (typeof window !== "undefined") {
+            window.lastFieldDropPosition = { isOver: false };
+          }
+        }
+      }
     }
   };
 

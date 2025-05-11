@@ -53,18 +53,57 @@ const FreePlacementArea = ({
       if (handArea) {
         handArea.classList.remove("hand-area-hover");
       }
+
+      // フィールドエリアのホバー状態もリセット
+      areaEl.classList.remove("field-area-hover");
+    };
+
+    // 手札からフィールドへのドロップ処理 (スマホ専用)
+    const handleMobileHandToFieldDrop = (e) => {
+      console.log(
+        "[FreePlacementArea] mobile-hand-to-field-drop event received:",
+        e.detail
+      );
+
+      const cardData = e.detail.cardData;
+      if (cardData && onDropCard) {
+        // フィールドへのドロップ座標を設定
+        const dropInfo = {
+          item: cardData,
+          x: cardData.x,
+          y: cardData.y,
+        };
+
+        // ドロップ処理を呼び出し
+        console.log(
+          "[FreePlacementArea] Processing mobile hand-to-field drop:",
+          dropInfo
+        );
+        onDropCard(dropInfo);
+
+        // ホバー状態を解除
+        areaEl.classList.remove("field-area-hover");
+      }
     };
 
     areaEl.addEventListener("touchmove", handleTouchMove, { passive: false });
     areaEl.addEventListener("touchend", handleTouchEnd);
+    areaEl.addEventListener(
+      "mobile-hand-to-field-drop",
+      handleMobileHandToFieldDrop
+    );
 
     return () => {
       areaEl.removeEventListener("touchmove", handleTouchMove);
       areaEl.removeEventListener("touchend", handleTouchEnd);
+      areaEl.removeEventListener(
+        "mobile-hand-to-field-drop",
+        handleMobileHandToFieldDrop
+      );
       // 念のため、アンマウント時にもスクロールを再有効化
       document.body.classList.remove("dragging");
     };
-  }, []);
+  }, [onDropCard]);
 
   // ドロップ処理
   const [{ isOver }, dropRef] = useDrop(
