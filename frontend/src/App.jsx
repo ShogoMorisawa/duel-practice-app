@@ -50,7 +50,7 @@ function App() {
       >
         <div className="min-h-screen bg-gray-50">
           <Header />
-          <main className="py-4">
+          <main className="pt-16">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/decks" element={<DeckList />} />

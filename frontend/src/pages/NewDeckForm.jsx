@@ -493,120 +493,123 @@ const NewDeckForm = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="max-w-6xl px-4 py-8 mx-auto">
       {!isAuthenticated ? (
-        <div className="text-center py-8">
-          <p className="text-gray-600 mb-4">
-            デッキを作成するにはログインが必要です
-          </p>
-          <button
-            onClick={() => navigate("/login")}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            ログインする
-          </button>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">
+              デッキを作成するにはログインが必要です
+            </p>
+            <button
+              onClick={() => navigate("/login")}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              ログインする
+            </button>
+          </div>
         </div>
       ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded-lg shadow-md p-6"
-        >
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b-2 border-blue-500">
             デッキ作成
           </h2>
 
-          <div className="mb-6">
-            <label
-              htmlFor="deck-name"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              デッキ名
-            </label>
-            <input
-              id="deck-name"
-              type="text"
-              placeholder="デッキ名を入力してください"
-              value={state.name}
-              onChange={(e) =>
-                dispatch({ type: "SET_NAME", payload: e.target.value })
-              }
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
-              required
-            />
-          </div>
-
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-3">
-              カード登録（40枚）
-            </h3>
-
-            {renderCardInputs()}
-
-            <div className="flex justify-between items-center mt-6">
-              <button
-                type="button"
-                disabled={currentPage === 0}
-                onClick={() => handlePageChange(currentPage - 1)}
-                className={`px-4 py-2 rounded ${
-                  currentPage === 0
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
-                }`}
+          <form onSubmit={handleSubmit}>
+            <div className="mb-6">
+              <label
+                htmlFor="deck-name"
+                className="block text-sm font-medium text-gray-700 mb-1"
               >
-                前へ
-              </button>
-
-              <div className="text-gray-700 font-medium">
-                ページ {currentPage + 1} / 5
-              </div>
-
-              <button
-                type="button"
-                disabled={currentPage === 4}
-                onClick={() => handlePageChange(currentPage + 1)}
-                className={`px-4 py-2 rounded ${
-                  currentPage === 4
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
-                }`}
-              >
-                次へ
-              </button>
+                デッキ名
+              </label>
+              <input
+                id="deck-name"
+                type="text"
+                placeholder="デッキ名を入力してください"
+                value={state.name}
+                onChange={(e) =>
+                  dispatch({ type: "SET_NAME", payload: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                required
+              />
             </div>
-          </div>
 
-          {state.error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-              エラー: {state.error}
-            </div>
-          )}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                カード登録（40枚）
+              </h3>
 
-          <div className="flex justify-center mt-6">
-            {/* アップロード中かどうかチェック */}
-            {(() => {
-              const isAnyUploading = state.cards.some((card) => card.uploading);
-              return (
+              {renderCardInputs()}
+
+              <div className="flex justify-between items-center mt-6">
                 <button
-                  type="submit"
-                  className={`px-6 py-3 rounded-md text-white font-medium ${
-                    state.isSubmitting || !state.name.trim() || isAnyUploading
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  type="button"
+                  disabled={currentPage === 0}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className={`px-4 py-2 rounded ${
+                    currentPage === 0
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
                   }`}
-                  disabled={
-                    state.isSubmitting || !state.name.trim() || isAnyUploading
-                  }
                 >
-                  {state.isSubmitting
-                    ? "作成中..."
-                    : isAnyUploading
-                    ? "画像アップロード中..."
-                    : "デッキを作成"}
+                  前へ
                 </button>
-              );
-            })()}
-          </div>
-        </form>
+
+                <div className="text-gray-700 font-medium">
+                  ページ {currentPage + 1} / 5
+                </div>
+
+                <button
+                  type="button"
+                  disabled={currentPage === 4}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className={`px-4 py-2 rounded ${
+                    currentPage === 4
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
+                >
+                  次へ
+                </button>
+              </div>
+            </div>
+
+            {state.error && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+                エラー: {state.error}
+              </div>
+            )}
+
+            <div className="flex justify-center mt-6">
+              {/* アップロード中かどうかチェック */}
+              {(() => {
+                const isAnyUploading = state.cards.some(
+                  (card) => card.uploading
+                );
+                return (
+                  <button
+                    type="submit"
+                    className={`px-6 py-3 rounded-md text-white font-medium ${
+                      state.isSubmitting || !state.name.trim() || isAnyUploading
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    }`}
+                    disabled={
+                      state.isSubmitting || !state.name.trim() || isAnyUploading
+                    }
+                  >
+                    {state.isSubmitting
+                      ? "作成中..."
+                      : isAnyUploading
+                      ? "画像アップロード中..."
+                      : "デッキを作成"}
+                  </button>
+                );
+              })()}
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

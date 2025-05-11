@@ -217,7 +217,7 @@ function PlayDeck() {
 
   // モード切り替え関数
   const activateMode = useCallback((mode) => {
-    setActiveMode(mode);
+    setActiveMode((currentMode) => (currentMode === mode ? null : mode));
   }, []);
 
   const deactivateMode = useCallback(() => {
@@ -624,12 +624,7 @@ function PlayDeck() {
           : undefined
       }
     >
-      <div className="flex flex-col h-screen bg-gray-100">
-        {/* ヘッダー */}
-        <header className="bg-gray-800 text-white shadow p-2 text-sm font-semibold flex justify-between items-center">
-          <div>{state.deckInfo.name} - プレイ</div>
-        </header>
-
+      <div className="fixed inset-x-0 top-16 bottom-0 flex flex-col h-[calc(100dvh-64px)] bg-gray-100">
         {/* メインゲーム領域 */}
         <div className="flex-1 flex flex-col p-1 md:p-2 overflow-hidden">
           {/* プレイエリア (FreePlacementArea) */}
@@ -644,52 +639,43 @@ function PlayDeck() {
               onMoveCard={handleMoveFieldCard}
               onClickCard={handleCardClick}
               onInit={handleFieldInit}
-              className="w-full h-full bg-green-100 rounded shadow-inner border border-green-300 overflow-auto"
+              className="w-full h-full bg-white rounded shadow-inner border border-gray-300 overflow-auto"
             />
-
-            {/* モード中のメッセージ */}
-            {isModeActive("deckTop") && (
-              <div className="text-sm text-blue-700 font-semibold mt-2 text-center">
-                山札の上に戻すカードを選択してください
-              </div>
-            )}
-            {isModeActive("deckBottom") && (
-              <div className="text-sm text-blue-700 font-semibold mt-2 text-center">
-                山札の下に戻すカードを選択してください
-              </div>
-            )}
           </div>
 
           {/* アクションエリア・コントロールパネル */}
-          <div className="flex flex-col md:flex-row bg-gray-200 rounded shadow p-1 md:p-2 gap-1 md:gap-2">
+          <div className="flex flex-col md:flex-row bg-gray-200 rounded shadow p-1 md:p-2 gap-1 md:gap-2 overflow-hidden">
             {/* 手札エリア */}
-            <HandArea
-              handCards={getCardsByZone(state.cards, "hand").map((card) => ({
-                ...card,
-                deckId: card.deckId || deckId,
-                cardId: card.cardId || card.id, // cardIdがない場合はcardのidを使用
-              }))}
-              onClickCard={handleCardClick}
-              onDropFromField={(item) => {
-                dispatch({
-                  type: ACTIONS.MOVE_CARD_ZONE,
-                  payload: {
-                    id: item.id,
-                    newZone: "hand",
-                    newProps: {
-                      rotation: 0,
-                      isFlipped: false,
+            <div className="md:flex-1 min-w-0 overflow-hidden">
+              <HandArea
+                handCards={getCardsByZone(state.cards, "hand").map((card) => ({
+                  ...card,
+                  deckId: card.deckId || deckId,
+                  cardId: card.cardId || card.id, // cardIdがない場合はcardのidを使用
+                }))}
+                onClickCard={handleCardClick}
+                activeMode={activeMode}
+                onDropFromField={(item) => {
+                  dispatch({
+                    type: ACTIONS.MOVE_CARD_ZONE,
+                    payload: {
+                      id: item.id,
+                      newZone: "hand",
+                      newProps: {
+                        rotation: 0,
+                        isFlipped: false,
+                      },
                     },
-                  },
-                });
-              }}
-            />
+                  });
+                }}
+              />
+            </div>
 
             {/* 山札＆シャッフル */}
-            <div className="flex items-center justify-center p-1 gap-2 bg-gray-300 rounded border border-gray-400">
+            <div className="flex-shrink-0 md:w-[200px] flex items-center justify-center p-1 gap-2 bg-gray-300 rounded border border-gray-400">
               {/* 山札 */}
               <div className="flex flex-col items-center">
-                <div className="text-xs mb-1 text-gray-700">
+                <div className="text-[10px] text-gray-600 mb-1">
                   残り {getCardsByZone(state.cards, "deck").length} 枚
                 </div>
                 <div
@@ -716,54 +702,81 @@ function PlayDeck() {
               {/* ボタンWrapper */}
               <div className="grid grid-cols-2 w-[160px] h-[120px] gap-1">
                 <button
-                  className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
+                  className={`text-[10px] px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
                     isModeActive("deckTop")
                       ? "bg-blue-400 hover:bg-blue-500 text-white border-blue-600"
                       : "bg-white hover:bg-blue-50 border-gray-100"
                   }`}
                   onClick={() => activateMode("deckTop")}
-                  aria-label="山札の上に戻す"
+                  aria-label={
+                    isModeActive("deckTop")
+                      ? "山札の上に戻すモードを解除"
+                      : "山札の上に戻すモードに切替"
+                  }
+                  title={
+                    isModeActive("deckTop")
+                      ? "クリックでモード解除"
+                      : "クリックして山札の上に戻すモードに切替"
+                  }
                 >
-                  <span className="text-lg">↑</span>
+                  <span className="text-base">↑</span>
                   <span className="whitespace-nowrap">
                     {isModeActive("deckTop") ? "モード中" : "上に戻す"}
                   </span>
                 </button>
                 <button
-                  className="bg-white text-xs px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
+                  className="bg-white text-[10px] px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-1 border border-gray-100"
                   onClick={handleShuffleDeck}
                   disabled={getCardsByZone(state.cards, "deck").length <= 1}
                   aria-label="山札をシャッフル"
                 >
-                  <span className="text-lg">🔀</span>
+                  <span className="text-base">🔀</span>
                   <span className="whitespace-nowrap">シャッフル</span>
                 </button>
                 <button
-                  className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
+                  className={`text-[10px] px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
                     isModeActive("deckBottom")
                       ? "bg-blue-400 hover:bg-blue-500 text-white border-blue-600"
                       : "bg-white hover:bg-blue-50 border-gray-100"
                   }`}
                   onClick={() => activateMode("deckBottom")}
-                  aria-label="山札の下に戻す"
+                  aria-label={
+                    isModeActive("deckBottom")
+                      ? "山札の下に戻すモードを解除"
+                      : "山札の下に戻すモードに切替"
+                  }
+                  title={
+                    isModeActive("deckBottom")
+                      ? "クリックでモード解除"
+                      : "クリックして山札の下に戻すモードに切替"
+                  }
                 >
-                  <span className="text-lg">↓</span>
+                  <span className="text-base">↓</span>
                   <span className="whitespace-nowrap">
                     {isModeActive("deckBottom") ? "モード中" : "下に戻す"}
                   </span>
                 </button>
                 <button
-                  className={`text-xs px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
+                  className={`text-[10px] px-3 py-1.5 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-1 border ${
                     isModeActive("flip")
                       ? "bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-600"
                       : "bg-white hover:bg-purple-50 border-gray-100"
                   }`}
                   onClick={() => activateMode("flip")}
-                  aria-label="カードを裏返す"
+                  aria-label={
+                    isModeActive("flip")
+                      ? "カードを裏返すモードを解除"
+                      : "カードを裏返すモードに切替"
+                  }
+                  title={
+                    isModeActive("flip")
+                      ? "クリックでモード解除"
+                      : "クリックしてカードを裏返すモードに切替"
+                  }
                 >
-                  <span className="text-lg">🔄</span>
+                  <span className="text-base">🔄</span>
                   <span className="whitespace-nowrap">
-                    {isModeActive("flip") ? "裏返しモード中" : "裏返す"}
+                    {isModeActive("flip") ? "モード中" : "裏返す"}
                   </span>
                 </button>
               </div>
