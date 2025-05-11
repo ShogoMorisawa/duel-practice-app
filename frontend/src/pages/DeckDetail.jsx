@@ -13,6 +13,9 @@ const DeckDetail = () => {
   const [deck, setDeck] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isGuestMode =
+    id.startsWith("guest-") ||
+    window.location.pathname.includes("/decks/guest/");
 
   // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
   const ensureAbsoluteUrl = (url) => {
@@ -27,6 +30,41 @@ const DeckDetail = () => {
     setLoading(true);
     setError(null);
 
+    // ゲストモードの場合はJSONからデッキデータを取得
+    if (isGuestMode) {
+      try {
+        // ゲストデッキのIDを正規化
+        const guestDeckId = id.startsWith("guest-") ? id : `guest-${id}`;
+
+        // guestDecks.jsonからデータを取得
+        const response = await fetch("/data/guestDecks.json");
+        if (!response.ok) {
+          throw new Error("ゲストデッキデータの取得に失敗しました");
+        }
+
+        const guestDecks = await response.json();
+        const selectedDeck = guestDecks.find((deck) => deck.id === guestDeckId);
+
+        if (!selectedDeck) {
+          throw new Error("指定されたゲストデッキが見つかりません");
+        }
+
+        setDeck({
+          ...selectedDeck,
+          cards: selectedDeck.cards || [],
+        });
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching guest deck:", error);
+        setError({
+          message: error.message || "ゲストデッキの取得に失敗しました",
+        });
+        setLoading(false);
+      }
+      return;
+    }
+
+    // 通常モード: APIからデッキデータを取得
     try {
       const response = await api.get(apiEndpoints.decks.getOne(id));
       setDeck(response.data.deck);
@@ -49,7 +87,15 @@ const DeckDetail = () => {
   }, [id]);
 
   const handlePlayDeck = () => {
-    navigate(`/play/${id}`);
+    if (isGuestMode) {
+      // ゲストデッキのプレイページへ
+      // guestId変数には完全なIDを渡す
+      const guestId = id.startsWith("guest-") ? id : `guest-${id}`;
+      navigate(`/play/guest/${guestId}`);
+    } else {
+      // 通常デッキのプレイページへ
+      navigate(`/play/${id}`);
+    }
   };
 
   if (loading)
@@ -86,35 +132,60 @@ const DeckDetail = () => {
   return (
     <div className="max-w-6xl px-4 py-8 mx-auto">
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex justify-between items-center mb-6 pb-2 border-b-2 border-blue-500">
-          <h2 className="text-2xl font-bold text-gray-800">{deck.name}</h2>
-          <button
-            onClick={handlePlayDeck}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md shadow transition-colors duration-200 flex items-center"
-          >
-            <span className="mr-2">プレイする</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+        <div className="mb-6 pb-3 border-b-2 border-blue-500">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-1">
+                {deck.name}
+                {isGuestMode && (
+                  <span className="ml-2 inline-block bg-yellow-500 text-white px-2 py-1 text-xs font-bold rounded">
+                    ゲストデッキ
+                  </span>
+                )}
+              </h2>
+            </div>
+            <button
+              onClick={handlePlayDeck}
+              className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md shadow transition-colors duration-200 flex items-center justify-center"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+              <span className="mr-2">プレイする</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {deck.cards.map((card, i) => (
             <div
               key={i}
               className="w-full h-32 border rounded-md overflow-hidden flex items-center justify-center bg-gray-100"
             >
-              {card.id ? (
+              {isGuestMode ? (
+                // ゲストデッキの場合は直接imageUrlを使用
+                <img
+                  src={card.imageUrl}
+                  alt={card.name || `カード${i + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error(
+                      "ゲストカード画像の読み込みに失敗:",
+                      card.imageUrl
+                    );
+                    e.target.src = "/images/default-card.jpg";
+                  }}
+                />
+              ) : card.id ? (
                 <img
                   src={ensureAbsoluteUrl(
                     apiEndpoints.cards.getImageById(card.id)
