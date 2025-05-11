@@ -67,7 +67,18 @@ function reducer(state, action) {
 
       // ① 対象カードを更新
       const updatedCard = state.cards.find((card) => card.id === id);
-      if (!updatedCard) return state;
+      if (!updatedCard) {
+        console.error(
+          `[Reducer] Card with id ${id} not found for MOVE_CARD_ZONE`
+        );
+        return state;
+      }
+
+      console.log(
+        `[Reducer] Moving card ${id} from ${updatedCard.zone} to ${newZone}`
+      );
+      console.log("[Reducer] Original card:", updatedCard);
+      console.log("[Reducer] New props:", newProps);
 
       const modifiedCard = {
         ...updatedCard,
@@ -75,10 +86,15 @@ function reducer(state, action) {
         ...(newZone === "field" && !updatedCard.x ? { x: 0, y: 0 } : {}),
         ...(newZone !== "field" ? { x: undefined, y: undefined } : {}),
         ...newProps,
-        // deckIdとcardIdは常に維持
-        deckId: updatedCard.deckId,
-        cardId: updatedCard.cardId || updatedCard.id,
+        // 重要な情報は常に維持
+        deckId: newProps.deckId || updatedCard.deckId,
+        cardId: newProps.cardId || updatedCard.cardId || updatedCard.id,
+        imageUrl: newProps.imageUrl || updatedCard.imageUrl,
+        name: newProps.name || updatedCard.name,
+        cost: newProps.cost || updatedCard.cost,
       };
+
+      console.log("[Reducer] Modified card:", modifiedCard);
 
       // ② 対象カードを除いた配列を作成
       const remainingCards = state.cards.filter((card) => card.id !== id);
@@ -195,6 +211,14 @@ const isTouchDevice = () => {
     navigator.msMaxTouchPoints > 0
   );
 };
+
+// スマホ用グローバル変数の初期化（ファイル先頭部分に追加）
+// スマホ向けのグローバルフラグを設定
+if (typeof window !== "undefined") {
+  window.isMobileCardDragging = false;
+  window.currentDraggedCard = null;
+  window.lastTouchPosition = null;
+}
 
 // --- メインコンポーネント ---
 function PlayDeck() {
@@ -607,6 +631,60 @@ function PlayDeck() {
     [state.cards, handleMoveFieldCard, deckId]
   );
 
+  // onDropFromFieldハンドラの修正
+  const handleDropFromField = useCallback(
+    (item) => {
+      console.log("[PlayDeck] Field card dropped to hand:", item);
+
+      // スマホからのドロップは特別なIDが必要なため、実際のIDを確認
+      const cardId = item.id;
+
+      // スマホの場合はitem.cardIdも確認（グローバル変数から取得した場合）
+      const actualCard = state.cards.find(
+        (card) =>
+          card.id === cardId || (card.cardId && card.cardId === item.cardId)
+      );
+
+      if (!actualCard) {
+        console.error("[PlayDeck] Could not find card with id:", cardId);
+        return;
+      }
+
+      console.log("[PlayDeck] Found card to move to hand:", actualCard);
+
+      // itemからの情報を確実に保持
+      const cardInfo = {
+        id: actualCard.id, // 見つかった実際のカードIDを使用
+        newZone: "hand",
+        newProps: {
+          rotation: 0,
+          isFlipped: false,
+          // 重要: これらの情報を維持
+          deckId: actualCard.deckId || item.deckId || deckId,
+          cardId: actualCard.cardId || item.cardId || item.id,
+          imageUrl: actualCard.imageUrl || item.imageUrl,
+          name: actualCard.name || item.name,
+          cost: actualCard.cost || item.cost,
+        },
+      };
+
+      console.log("[PlayDeck] Moving card to hand with props:", cardInfo);
+
+      // 成功を示すために一時的にグローバル変数をクリア
+      if (window.currentDraggedCard) {
+        window.currentDraggedCard = null;
+        window.isMobileCardDragging = false;
+      }
+
+      // ステート更新
+      dispatch({
+        type: ACTIONS.MOVE_CARD_ZONE,
+        payload: cardInfo,
+      });
+    },
+    [state.cards, dispatch, deckId]
+  );
+
   // --- レンダリング ---
 
   if (state.loading && !state.deckInfo)
@@ -708,19 +786,7 @@ function PlayDeck() {
                 onClickCard={handleCardClick}
                 activeMode={activeMode}
                 isShuffling={isShuffling}
-                onDropFromField={(item) => {
-                  dispatch({
-                    type: ACTIONS.MOVE_CARD_ZONE,
-                    payload: {
-                      id: item.id,
-                      newZone: "hand",
-                      newProps: {
-                        rotation: 0,
-                        isFlipped: false,
-                      },
-                    },
-                  });
-                }}
+                onDropFromField={handleDropFromField}
               />
             </div>
 

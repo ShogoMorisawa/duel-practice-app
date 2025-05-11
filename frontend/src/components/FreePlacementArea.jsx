@@ -28,6 +28,44 @@ const FreePlacementArea = ({
     }
   }, [onInit]);
 
+  // スマホのドラッグ操作時のスクロール制御
+  useEffect(() => {
+    const areaEl = areaRef.current;
+    if (!areaEl) return;
+
+    const handleTouchMove = (e) => {
+      // ドラッグ操作中はスクロールを抑制
+      if (window.currentDraggedCard) {
+        // ドラッグ中はbodyにクラスを追加してスクロールを無効化
+        document.body.classList.add("dragging");
+
+        // スクロールを防止
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      // ドラッグ終了時にスクロールを再有効化
+      document.body.classList.remove("dragging");
+
+      // 手札エリアのホバー状態もリセット
+      const handArea = document.querySelector(".hand-area");
+      if (handArea) {
+        handArea.classList.remove("hand-area-hover");
+      }
+    };
+
+    areaEl.addEventListener("touchmove", handleTouchMove, { passive: false });
+    areaEl.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      areaEl.removeEventListener("touchmove", handleTouchMove);
+      areaEl.removeEventListener("touchend", handleTouchEnd);
+      // 念のため、アンマウント時にもスクロールを再有効化
+      document.body.classList.remove("dragging");
+    };
+  }, []);
+
   // ドロップ処理
   const [{ isOver }, dropRef] = useDrop(
     () => ({

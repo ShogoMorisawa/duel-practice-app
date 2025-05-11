@@ -91,7 +91,8 @@ const DraggableCard = ({
         // 実際のDBに存在するcardIdを優先的に使用
         const actualCardId = /^\d+$/.test(cardId) ? cardId : id;
 
-        return {
+        // ドラッグされるアイテムに必要な情報をすべて含める
+        const dragItem = {
           id,
           name,
           cost,
@@ -101,15 +102,19 @@ const DraggableCard = ({
           type: actualZone, // 後方互換性のため
           zone: actualZone, // 新しいプロパティ
           rotation,
-          imageUrl, // imageUrlを追加
-          deckId,
+          imageUrl, // 画像URLを必ず含める
+          deckId, // デッキIDを必ず含める
           cardId: actualCardId, // DBのIDを優先
         };
+
+        console.log("[DEBUG] Drag item data:", dragItem);
+        return dragItem;
       },
       end: (item, monitor) => {
         console.log("[DEBUG] Drag ending for card:", id);
         const delta = monitor.getDifferenceFromInitialOffset();
         console.log("[DEBUG] Drag delta:", delta);
+        console.log("[DEBUG] Was drop result successful:", monitor.didDrop());
 
         if (delta) {
           const newX = Math.round(initialPos.x + delta.x);
@@ -196,6 +201,14 @@ const DraggableCard = ({
     };
     currentPos.current = { x, y };
 
+    // グローバル変数にもタッチ位置を記録
+    if (typeof window !== "undefined") {
+      window.lastTouchPosition = {
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    }
+
     // タッチ開始時間を記録
     dragStartTimeRef.current = Date.now();
     console.log(
@@ -204,6 +217,33 @@ const DraggableCard = ({
       "at time:",
       dragStartTimeRef.current
     );
+
+    // グローバル変数に現在ドラッグ中のカード情報を格納（スマホ用）
+    window.currentDraggedCard = {
+      id,
+      name,
+      cost,
+      isFlipped,
+      zone: actualZone,
+      type: actualZone,
+      x,
+      y,
+      rotation,
+      imageUrl,
+      deckId,
+      cardId: /^\d+$/.test(cardId) ? cardId : id,
+    };
+
+    // ドラッグ中フラグを設定
+    window.isMobileCardDragging = true;
+
+    console.log("📱 Set global dragged card:", window.currentDraggedCard);
+
+    // カードを強調表示（視覚的フィードバック）
+    if (cardRef.current) {
+      cardRef.current.style.boxShadow = "0 0 10px 2px rgba(59, 130, 246, 0.8)";
+      cardRef.current.style.zIndex = "9999";
+    }
   };
 
   // タップとドラッグを区別するためのタップ検出関数
@@ -230,6 +270,22 @@ const DraggableCard = ({
   const handleManualDragEnd = (e) => {
     const wasDragging = manualDragging;
 
+    // ドラッグ状態をリセット
+    setManualDragging(false);
+    isDraggingRef.current = false;
+
+    // カードの見た目をリセット
+    if (cardRef.current) {
+      cardRef.current.style.boxShadow = "";
+      cardRef.current.style.zIndex = "";
+    }
+
+    // 手札エリアのホバー状態をリセット
+    const handArea = document.querySelector(".hand-area");
+    if (handArea) {
+      handArea.classList.remove("hand-area-hover");
+    }
+
     // ドラッグしていた場合はドラッグ終了処理
     if (wasDragging) {
       const touch = e.changedTouches[0];
@@ -242,7 +298,74 @@ const DraggableCard = ({
         const newX = Math.round(currentPos.current.x + deltaX);
         const newY = Math.round(currentPos.current.y + deltaY);
 
-        // 移動コールバックを呼び出し
+        // 手札エリアへのドロップをチェック
+        const handArea = document.querySelector(".hand-area");
+        if (handArea) {
+          const handRect = handArea.getBoundingClientRect();
+
+          // 手札エリア上でのドロップを検出
+          const isDroppedOnHandArea =
+            touch.clientX >= handRect.left &&
+            touch.clientX <= handRect.right &&
+            touch.clientY >= handRect.top &&
+            touch.clientY <= handRect.bottom;
+
+          if (isDroppedOnHandArea) {
+            console.log("📱 Card dropped on hand area:", id);
+
+            // 手動でカスタムイベントを発火して手札エリアに通知
+            try {
+              const dropEvent = new CustomEvent("mobile-card-drop", {
+                detail: {
+                  cardId: id,
+                  cardData: window.currentDraggedCard,
+                },
+              });
+              handArea.dispatchEvent(dropEvent);
+
+              // ドロップ位置での視覚的フィードバック
+              const feedback = document.createElement("div");
+              feedback.className = "drop-feedback";
+              feedback.style.position = "fixed";
+              feedback.style.left = `${touch.clientX}px`;
+              feedback.style.top = `${touch.clientY}px`;
+              feedback.style.width = "16px";
+              feedback.style.height = "16px";
+              feedback.style.borderRadius = "50%";
+              feedback.style.backgroundColor = "rgba(59, 130, 246, 0.5)";
+              feedback.style.transform = "translate(-50%, -50%)";
+              feedback.style.zIndex = "10000";
+              feedback.style.transition = "all 0.3s ease-out";
+              document.body.appendChild(feedback);
+
+              // フィードバックアニメーション
+              setTimeout(() => {
+                feedback.style.opacity = "0";
+                feedback.style.transform = "translate(-50%, -50%) scale(1.5)";
+              }, 10);
+
+              // フィードバック要素を削除
+              setTimeout(() => {
+                if (feedback.parentNode) {
+                  feedback.parentNode.removeChild(feedback);
+                }
+              }, 500);
+
+              // グローバル変数は維持（HandAreaのイベントリスナーで使用）
+              return;
+            } catch (err) {
+              console.error(
+                "📱 Error dispatching mobile-card-drop event:",
+                err
+              );
+            }
+          }
+
+          // ドロップ状態をリセット
+          handArea.classList.remove("hand-area-hover");
+        }
+
+        // 手札エリア以外の場所でドロップされた場合は通常の移動処理
         if (onMove) {
           console.log("📱 Manual drag end:", { deltaX, deltaY, newX, newY });
           onMove({
@@ -254,7 +377,15 @@ const DraggableCard = ({
         }
       }
 
-      setManualDragging(false);
+      // グローバル変数は少し遅延してクリア
+      setTimeout(() => {
+        if (window.currentDraggedCard && window.currentDraggedCard.id === id) {
+          console.log("📱 Clearing global dragged card after timeout");
+          window.currentDraggedCard = null;
+          window.isMobileCardDragging = false;
+        }
+      }, 300);
+
       return;
     }
 
@@ -265,6 +396,13 @@ const DraggableCard = ({
         onClick(id);
         return;
       }
+    }
+
+    // グローバル変数をすぐにクリア（タップの場合）
+    if (window.currentDraggedCard && window.currentDraggedCard.id === id) {
+      console.log("📱 Clearing global dragged card immediately (tap case)");
+      window.currentDraggedCard = null;
+      window.isMobileCardDragging = false;
     }
 
     console.log("📱 Touch end without any action");
@@ -346,9 +484,12 @@ const DraggableCard = ({
       const deltaY = touch.clientY - touchStartPos.current.y;
 
       // 移動量が十分あればドラッグ開始
-      if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
         setManualDragging(true);
         console.log("📱 Starting manual drag based on movement");
+
+        // ドラッグ開始を明示的に設定
+        isDraggingRef.current = true;
       } else {
         return; // 移動量が少なければまだドラッグ開始しない
       }
@@ -357,6 +498,14 @@ const DraggableCard = ({
     // 移動時の新しい位置を計算
     const touch = e.touches[0];
     if (!touch) return;
+
+    // グローバル変数に最新のタッチ位置を更新
+    if (typeof window !== "undefined") {
+      window.lastTouchPosition = {
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    }
 
     // 移動量を計算
     const deltaX = touch.clientX - touchStartPos.current.x;
@@ -373,6 +522,33 @@ const DraggableCard = ({
     }
 
     console.log("📱 Manual drag move:", { deltaX, deltaY, newX, newY });
+
+    // 現在の要素がどのエリア上にあるかを確認（手札エリアへのドロップ判定）
+    checkDropTarget(touch.clientX, touch.clientY);
+  };
+
+  // ドロップ対象のチェック（新しく追加）
+  const checkDropTarget = (x, y) => {
+    // 手札エリアの要素を取得
+    const handArea = document.querySelector(".hand-area");
+    if (!handArea) return;
+
+    // 手札エリアの位置を取得
+    const handRect = handArea.getBoundingClientRect();
+
+    // 現在のタッチ位置が手札エリア内かどうかを確認
+    const isOverHandArea =
+      x >= handRect.left &&
+      x <= handRect.right &&
+      y >= handRect.top &&
+      y <= handRect.bottom;
+
+    // 手札エリア上でのホバー状態を視覚的に表示
+    if (isOverHandArea) {
+      handArea.classList.add("hand-area-hover");
+    } else {
+      handArea.classList.remove("hand-area-hover");
+    }
   };
 
   return (

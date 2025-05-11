@@ -11,6 +11,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   touch-action: manipulation;
+  overflow-x: hidden;
 }
 
 /* ドラッグ可能なカードのスタイル */
@@ -28,4 +29,59 @@ body {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   overflow: auto;
+}
+
+/* 手札エリアのタッチハイライト */
+.hand-area-active {
+  background-color: rgba(
+    59,
+    130,
+    246,
+    0.15
+  ) !important; /* 薄い青色の半透明背景 */
+  transition: background-color 0.15s ease;
+  border-color: #3b82f6 !important;
+}
+
+/* 手札エリアのホバー状態 */
+.hand-area-hover {
+  background-color: rgba(
+    59,
+    130,
+    246,
+    0.25
+  ) !important; /* より濃い青色の背景 */
+  border-color: #2563eb !important; /* より濃い青色のボーダー */
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3) !important;
+  transition: all 0.15s ease;
+}
+
+/* ドロップフィードバックのアニメーション */
+@keyframes dropFeedback {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.drop-feedback {
+  animation: dropFeedback 0.3s ease-out forwards;
+}
+
+/* スマホ環境でのドラッグ操作改善 */
+@media (pointer: coarse) {
+  /* コースポインタ（タッチスクリーン）向け設定 */
+  .free-placement-area {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ドラッグ中はスクロールを無効化 */
+  body.dragging {
+    overflow: hidden;
+  }
 }

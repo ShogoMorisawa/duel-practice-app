@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { useDrop } from "react-dnd";
 import Card from "./Card";
 
@@ -18,10 +18,19 @@ const HandArea = ({
   activeMode,
   isShuffling,
 }) => {
+  const areaRef = useRef(null);
+
+  // react-dndのドロップ処理（PCユーザー向け）
   const [{ isOver }, dropRef] = useDrop({
     accept: "CARD",
     drop: (item) => {
-      if (item.zone === "field" && onDropFromField) {
+      // zoneとtypeの両方をチェック（後方互換性のため）
+      const isFieldCard = item.zone === "field" || item.type === "field";
+      if (isFieldCard && onDropFromField) {
+        console.log(
+          "[HandArea] Field card dropped to hand via react-dnd:",
+          item
+        );
         onDropFromField(item);
       }
     },
@@ -29,6 +38,100 @@ const HandArea = ({
       isOver: monitor.isOver(),
     }),
   });
+
+  // スマホ向けのタッチイベント処理
+  useEffect(() => {
+    const handAreaEl = areaRef.current;
+    if (!handAreaEl) return;
+
+    const handleTouchStart = (e) => {
+      handAreaEl.classList.add("hand-area-active");
+      console.log("[HandArea] TouchStart detected");
+
+      // タッチ位置の情報を記録（デバッグ用）
+      if (e.touches && e.touches[0]) {
+        const touch = e.touches[0];
+        console.log("[HandArea] Touch position:", touch.clientX, touch.clientY);
+      }
+    };
+
+    const handleTouchEnd = (e) => {
+      console.log("[HandArea] TouchEnd detected");
+
+      // クラスを削除（視覚的フィードバック用）
+      handAreaEl.classList.remove("hand-area-active");
+      handAreaEl.classList.remove("hand-area-hover");
+
+      // グローバル状態から現在ドラッグ中のカード情報を取得
+      const draggedCard = window.currentDraggedCard;
+
+      if (draggedCard && draggedCard.zone === "field") {
+        console.log(
+          "[HandArea] Potential mobile drop detected for card:",
+          draggedCard
+        );
+
+        // 手札エリア内でのタッチ終了かどうかを確認
+        const rect = handAreaEl.getBoundingClientRect();
+        const touch = e.changedTouches[0];
+
+        if (
+          touch &&
+          touch.clientX >= rect.left &&
+          touch.clientX <= rect.right &&
+          touch.clientY >= rect.top &&
+          touch.clientY <= rect.bottom
+        ) {
+          console.log("[HandArea] Valid drop in hand area detected on mobile");
+          // 有効なドロップとして処理
+          if (onDropFromField) {
+            onDropFromField(draggedCard);
+
+            // グローバル状態をリセット
+            window.currentDraggedCard = null;
+            window.isMobileCardDragging = false;
+          }
+        }
+      }
+    };
+
+    // モバイル専用のカスタムイベントリスナー（DraggableCardからの通知用）
+    const handleMobileCardDrop = (e) => {
+      console.log("[HandArea] mobile-card-drop event received:", e.detail);
+
+      const cardData = e.detail.cardData;
+      if (cardData && onDropFromField) {
+        // カードを手札に移動
+        onDropFromField(cardData);
+
+        // すぐに通常状態に戻す（ホバー状態も解除）
+        handAreaEl.classList.remove("hand-area-hover");
+        handAreaEl.classList.remove("hand-area-active");
+
+        // グローバル状態をリセット
+        window.currentDraggedCard = null;
+        window.isMobileCardDragging = false;
+      }
+    };
+
+    // イベントリスナーを追加
+    handAreaEl.addEventListener("touchstart", handleTouchStart);
+    handAreaEl.addEventListener("touchend", handleTouchEnd);
+    handAreaEl.addEventListener("mobile-card-drop", handleMobileCardDrop);
+
+    // クリーンアップ
+    return () => {
+      handAreaEl.removeEventListener("touchstart", handleTouchStart);
+      handAreaEl.removeEventListener("touchend", handleTouchEnd);
+      handAreaEl.removeEventListener("mobile-card-drop", handleMobileCardDrop);
+    };
+  }, [onDropFromField]);
+
+  // refを結合
+  const setCombinedRef = (el) => {
+    areaRef.current = el;
+    dropRef(el);
+  };
 
   // モードメッセージの取得
   const getModeMessage = () => {
@@ -46,10 +149,11 @@ const HandArea = ({
 
   return (
     <div
-      ref={dropRef}
-      className={`w-full md:flex-1 h-32 max-w-full overflow-x-auto overflow-y-hidden whitespace-nowrap px-2 py-1 rounded border relative ${
+      ref={setCombinedRef}
+      className={`hand-area w-full md:flex-1 h-32 max-w-full overflow-x-auto overflow-y-hidden whitespace-nowrap px-2 py-1 rounded border relative ${
         isOver ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
       }`}
+      style={{ touchAction: "pan-x" }}
     >
       {handCards.map((card) => (
         <div key={card.id} className="inline-block mr-2">
@@ -60,7 +164,10 @@ const HandArea = ({
             isFlipped={card.isFlipped}
             zone="hand"
             imageUrl={card.imageUrl}
+            deckId={card.deckId}
+            cardId={card.cardId}
             onClick={() => onClickCard && onClickCard(card.id)}
+            draggable={false}
           />
         </div>
       ))}
