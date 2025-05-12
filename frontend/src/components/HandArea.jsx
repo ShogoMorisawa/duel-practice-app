@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { useDrop } from "react-dnd";
 import Card from "./Card";
+import DraggableCard from "./DraggableCard";
 
 /**
  * 手札エリア
@@ -26,12 +27,21 @@ const HandArea = ({
     drop: (item) => {
       // zoneとtypeの両方をチェック（後方互換性のため）
       const isFieldCard = item.zone === "field" || item.type === "field";
+      const isHandCard = item.zone === "hand" || item.type === "hand";
+
       if (isFieldCard && onDropFromField) {
         console.log(
           "[HandArea] Field card dropped to hand via react-dnd:",
           item
         );
         onDropFromField(item);
+      } else if (isHandCard) {
+        console.log(
+          "[HandArea] Hand card dropped to hand via react-dnd:",
+          item
+        );
+        // 手札内での入れ替えは特別な処理は必要ありません
+        // DraggableCardが自動的に位置を調整します
       }
     },
     collect: (monitor) => ({
@@ -163,6 +173,16 @@ const HandArea = ({
     dropRef(el);
   };
 
+  // 手札カードの位置計算（横並びになるように座標を調整）
+  const getCardPosition = (index) => {
+    const CARD_WIDTH = 60; // カード幅 + マージン
+
+    return {
+      x: index * CARD_WIDTH + 10, // 横位置: 左から順に配置（折り返しなし）
+      y: 10, // 縦位置: すべて同じ高さ
+    };
+  };
+
   // モードメッセージの取得
   const getModeMessage = () => {
     if (isShuffling) return "シャッフル中...";
@@ -180,34 +200,45 @@ const HandArea = ({
   return (
     <div
       ref={setCombinedRef}
-      className={`hand-area w-full md:flex-1 h-32 max-w-full overflow-x-auto overflow-y-hidden whitespace-nowrap px-2 py-1 rounded border relative ${
+      className={`hand-area w-full md:flex-1 h-32 max-w-full overflow-x-auto overflow-y-hidden whitespace-nowrap rounded border relative ${
         isOver ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
       }`}
       style={{ touchAction: "pan-x", WebkitOverflowScrolling: "touch" }}
     >
-      <div className="py-1 inline-flex gap-2">
-        {handCards.map((card) => (
-          <div key={card.id} className="inline-block">
-            <Card
-              id={card.id}
-              name={card.name}
-              cost={card.cost}
-              isFlipped={card.isFlipped}
-              zone="hand"
-              type="hand"
-              imageUrl={card.imageUrl}
-              deckId={card.deckId}
-              cardId={card.cardId}
-              onClick={() => onClickCard && onClickCard(card.id)}
-              draggable={true}
-              rotation={card.rotation || 0}
-            />
-          </div>
-        ))}
-        {handCards.length === 0 && (
+      <div
+        className="py-1 px-2 h-[calc(100%-24px)] relative"
+        style={{
+          minWidth: "100%",
+          width: `${Math.max(handCards.length * 60 + 20, 100)}px`,
+        }}
+      >
+        {handCards.length === 0 ? (
           <div className="h-full w-full flex items-center justify-center text-gray-500 italic">
             手札がありません
           </div>
+        ) : (
+          handCards.map((card, index) => {
+            const position = getCardPosition(index);
+            return (
+              <DraggableCard
+                key={card.id}
+                id={card.id}
+                name={card.name}
+                cost={card.cost}
+                isFlipped={card.isFlipped}
+                type="hand"
+                zone="hand"
+                x={position.x}
+                y={position.y}
+                rotation={card.rotation || 0}
+                onClick={() => onClickCard && onClickCard(card.id)}
+                onMove={() => {}} // 手札内ではonMove不要だが必須プロパティ
+                imageUrl={card.imageUrl}
+                deckId={card.deckId}
+                cardId={card.cardId}
+              />
+            );
+          })
         )}
       </div>
 
