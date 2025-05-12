@@ -37,11 +37,12 @@ const HandArea = ({
         onDropFromField(item);
       } else if (isHandCard) {
         console.log(
-          "[HandArea] Hand card dropped to hand via react-dnd:",
+          "[HandArea] Hand card dropped to hand via react-dnd - ignoring:",
           item
         );
-        // 手札内での入れ替えは特別な処理は必要ありません
-        // DraggableCardが自動的に位置を調整します
+        // 手札から手札へのドロップは無視する（PCではもともと元の位置に戻る）
+        // ここでは特に何もしない
+        return false; // ドロップを拒否
       }
     },
     collect: (monitor) => ({
@@ -140,7 +141,65 @@ const HandArea = ({
       console.log("[HandArea] mobile-card-drop event received:", e.detail);
 
       const cardData = e.detail.cardData;
-      if (cardData && onDropFromField) {
+      if (!cardData) return;
+
+      // 手札から手札へのドロップを検出したら、元の位置に戻す視覚的効果を与える
+      if (cardData.zone === "hand" || cardData.type === "hand") {
+        console.log(
+          "[HandArea] Hand-to-hand drop detected - returning to original position:",
+          cardData
+        );
+
+        // カード要素を取得（現在ドラッグ中のもの）
+        const cardElement = document.querySelector(
+          `[data-card-id="${cardData.id}"]`
+        );
+        if (cardElement) {
+          // アニメーションで元の位置に戻す
+          cardElement.style.transition = "all 0.2s ease-out";
+        }
+
+        // ドロップ成功のフィードバック（視覚的効果）
+        const touch = window.lastTouchPosition;
+        if (touch) {
+          const feedback = document.createElement("div");
+          feedback.className = "drop-feedback";
+          feedback.style.position = "fixed";
+          feedback.style.left = `${touch.x}px`;
+          feedback.style.top = `${touch.y}px`;
+          feedback.style.width = "10px";
+          feedback.style.height = "10px";
+          feedback.style.borderRadius = "50%";
+          feedback.style.backgroundColor = "rgba(59, 130, 246, 0.5)";
+          feedback.style.transform = "translate(-50%, -50%)";
+          feedback.style.zIndex = "10000";
+          feedback.style.transition = "all 0.3s ease-out";
+          document.body.appendChild(feedback);
+
+          // フィードバックアニメーション
+          setTimeout(() => {
+            feedback.style.opacity = "0";
+            feedback.style.transform = "translate(-50%, -50%) scale(1.5)";
+          }, 10);
+
+          // フィードバック要素を削除
+          setTimeout(() => {
+            if (feedback.parentNode) {
+              feedback.parentNode.removeChild(feedback);
+            }
+          }, 300);
+        }
+
+        // 手札から手札の移動は許可しない
+        return;
+      }
+
+      // フィールドからの場合のみ処理
+      if (
+        cardData &&
+        onDropFromField &&
+        (cardData.zone === "field" || cardData.type === "field")
+      ) {
         // カードを手札に移動
         onDropFromField(cardData);
 
@@ -232,7 +291,13 @@ const HandArea = ({
                 y={position.y}
                 rotation={card.rotation || 0}
                 onClick={() => onClickCard && onClickCard(card.id)}
-                onMove={() => {}} // 手札内ではonMove不要だが必須プロパティ
+                onMove={() => {
+                  // 手札内では位置の移動を許可しない（元の位置に戻す）
+                  console.log(
+                    "[HandArea] onMove called for hand card - ignoring and returning to original position"
+                  );
+                  return false;
+                }}
                 imageUrl={card.imageUrl}
                 deckId={card.deckId}
                 cardId={card.cardId}

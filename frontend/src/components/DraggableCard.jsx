@@ -377,6 +377,63 @@ const DraggableCard = ({
           }
         }
 
+        // 手札から手札へのドラッグ処理（スマホ用）
+        if (actualZone === "hand") {
+          console.log(
+            "📱 Hand card dropped - returning to original position:",
+            id
+          );
+
+          // アニメーションで元の位置に戻す
+          if (cardRef.current) {
+            cardRef.current.style.transition = "all 0.3s ease-out";
+            cardRef.current.style.left = `${initialPos.x}px`;
+            cardRef.current.style.top = `${initialPos.y}px`;
+
+            // トランジション終了後にスタイルをリセット
+            setTimeout(() => {
+              if (cardRef.current) {
+                cardRef.current.style.transition = "";
+              }
+            }, 300);
+          }
+
+          // 視覚的フィードバック
+          const feedback = document.createElement("div");
+          feedback.className = "drop-feedback";
+          feedback.style.position = "fixed";
+          feedback.style.left = `${touch.clientX}px`;
+          feedback.style.top = `${touch.clientY}px`;
+          feedback.style.width = "16px";
+          feedback.style.height = "16px";
+          feedback.style.borderRadius = "50%";
+          feedback.style.backgroundColor = "rgba(59, 130, 246, 0.5)";
+          feedback.style.transform = "translate(-50%, -50%)";
+          feedback.style.zIndex = "10000";
+          document.body.appendChild(feedback);
+
+          // フィードバックアニメーション
+          setTimeout(() => {
+            feedback.style.opacity = "0";
+            feedback.style.transform = "translate(-50%, -50%) scale(1.5)";
+          }, 10);
+
+          // フィードバック要素を削除
+          setTimeout(() => {
+            if (feedback.parentNode) {
+              feedback.parentNode.removeChild(feedback);
+            }
+          }, 300);
+
+          // グローバル状態をリセット
+          setTimeout(() => {
+            window.currentDraggedCard = null;
+            window.isMobileCardDragging = false;
+          }, 100);
+
+          return;
+        }
+
         // フィールドから手札へのドラッグ処理（スマホ用）
         // 手札エリアへのドロップをチェック
         if (handArea) {
@@ -765,6 +822,7 @@ const DraggableCard = ({
       }}
       className="absolute touch-none select-none"
       draggable={false}
+      data-card-id={id}
       // マウスクリック専用ハンドラ（スマホはonTouchEndで処理）
       onClick={(e) => {
         // スマホデバイスでは処理をスキップ（touchendで処理する）
