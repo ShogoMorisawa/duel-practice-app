@@ -9,7 +9,9 @@ import DraggableCard from "./DraggableCard";
  * @param {function} props.onDropCard カードがドロップされた時のコールバック
  * @param {function} props.onMoveCard フィールドカードが移動した時のコールバック
  * @param {function} props.onClickCard カードがクリックされた時のコールバック
+ * @param {function} props.onRotateCard カードを回転させる時のコールバック
  * @param {function} props.onInit 初期化時のコールバック（サイズ情報を渡す）
+ * @param {boolean} props.isZoomSelectMode 拡大カード選択モードかどうか
  * @param {string} props.className 追加のCSSクラス
  */
 const FreePlacementArea = ({
@@ -17,7 +19,10 @@ const FreePlacementArea = ({
   onDropCard,
   onMoveCard,
   onClickCard,
+  onRotateCard,
   onInit,
+  isZoomSelectMode = false,
+  className,
 }) => {
   const areaRef = useRef(null);
 
@@ -191,7 +196,7 @@ const FreePlacementArea = ({
       ref={combinedRef}
       className={`free-placement-area relative w-full h-full rounded-lg overflow-auto ${
         isOver ? "bg-green-200" : "bg-green-100"
-      }`}
+      } ${className || ""}`}
       style={{
         minHeight: "200px",
         border: isOver ? "2px solid #4ade80" : "2px dashed #ccc",
@@ -207,28 +212,18 @@ const FreePlacementArea = ({
           name={card.name}
           cost={card.cost}
           isFlipped={card.isFlipped}
-          type={card.type || "field"}
-          zone={card.zone || "field"}
+          type="field"
+          zone="field"
           x={card.x}
           y={card.y}
           rotation={card.rotation || 0}
+          onClick={onClickCard}
           onMove={onMoveCard}
-          onClick={() => {
-            console.log(
-              "[DEBUG] DraggableCard onClick triggered in FreePlacementArea for card:",
-              card.id
-            );
-            if (onClickCard) {
-              onClickCard(card.id);
-            } else {
-              console.error(
-                "[ERROR] onClickCard is not defined in FreePlacementArea"
-              );
-            }
-          }}
+          onRotate={onRotateCard}
           imageUrl={card.imageUrl}
           deckId={card.deckId}
-          cardId={card.cardId || card.id}
+          cardId={card.cardId}
+          isZoomSelectMode={isZoomSelectMode}
         />
       ))}
     </div>

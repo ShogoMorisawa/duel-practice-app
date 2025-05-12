@@ -11,6 +11,7 @@ import DraggableCard from "./DraggableCard";
  * @param {function} props.onDropFromField フィールドからのカードを受け取ったときの処理
  * @param {string} props.activeMode 現在のアクティブなモード
  * @param {boolean} props.isShuffling シャッフル中かどうか
+ * @param {boolean} props.isZoomSelectMode 拡大カード選択モードかどうか
  */
 const HandArea = ({
   handCards,
@@ -18,6 +19,7 @@ const HandArea = ({
   onDropFromField,
   activeMode,
   isShuffling,
+  isZoomSelectMode = false,
 }) => {
   const areaRef = useRef(null);
 
@@ -301,6 +303,7 @@ const HandArea = ({
                 imageUrl={card.imageUrl}
                 deckId={card.deckId}
                 cardId={card.cardId}
+                isZoomSelectMode={isZoomSelectMode}
               />
             );
           })

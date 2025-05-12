@@ -16,9 +16,11 @@ import Card from "./Card";
  * @param {number} props.rotation 回転角度
  * @param {function} props.onMove 移動時のコールバック
  * @param {function} props.onClick クリック時のコールバック
+ * @param {function} props.onRotate 回転時のコールバック
  * @param {string} props.imageUrl カードの画像URL (レガシーサポート用)
  * @param {string} props.deckId カードが所属するデッキのID
  * @param {string} props.cardId カードのID（APIエンドポイント用）
+ * @param {boolean} props.isZoomSelectMode 拡大カード選択モードかどうか
  */
 const DraggableCard = ({
   id,
@@ -32,9 +34,11 @@ const DraggableCard = ({
   rotation = 0,
   onMove,
   onClick,
+  onRotate,
   imageUrl,
   deckId,
   cardId,
+  isZoomSelectMode = false,
 }) => {
   console.log("[DraggableCard] Props:", {
     id,
@@ -49,6 +53,7 @@ const DraggableCard = ({
     imageUrl,
     deckId,
     cardId,
+    isZoomSelectMode,
   });
 
   // zoneがあればそれを使い、なければtypeを使う移行期コード
@@ -612,7 +617,14 @@ const DraggableCard = ({
     e.preventDefault();
 
     // 回転処理
-    if (onMove) {
+    if (onRotate) {
+      // 回転用の専用ハンドラがあれば使用（PlayDeckページから提供）
+      console.log(
+        `[DEBUG] DraggableCard requesting rotation via right-click using onRotate handler`
+      );
+      onRotate(id);
+    } else if (onMove) {
+      // 従来の移動ハンドラで回転（後方互換性用）
       const newRotation = (rotation + 90) % 360;
       console.log(
         `[DEBUG] DraggableCard requesting rotation via right-click: ${rotation} -> ${newRotation}`
@@ -623,6 +635,42 @@ const DraggableCard = ({
         y,
         rotation: newRotation,
       });
+    }
+  };
+
+  // 長押し検出用変数
+  const longPressTimer = useRef(null);
+  const longPressDelay = 500; // ミリ秒
+
+  // 長押し開始ハンドラ
+  const handleLongPressStart = () => {
+    if (actualZone === "field") {
+      // フィールドカードの場合のみ長押し検出
+      longPressTimer.current = setTimeout(() => {
+        console.log("[DEBUG] Long press detected on field card:", id);
+        // 回転処理
+        if (onRotate) {
+          onRotate(id);
+        } else if (onMove) {
+          const newRotation = (rotation + 90) % 360;
+          onMove({
+            id,
+            x,
+            y,
+            rotation: newRotation,
+          });
+        }
+        // タイマーをクリア
+        longPressTimer.current = null;
+      }, longPressDelay);
+    }
+  };
+
+  // 長押しキャンセルハンドラ
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
     }
   };
 
@@ -655,14 +703,29 @@ const DraggableCard = ({
     top: `${y}px`,
     transform: `rotate(${rotation}deg)`,
     opacity: isDragging || manualDragging ? 0.5 : 1,
-    cursor: "move",
+    cursor: isZoomSelectMode ? "pointer" : "move",
     zIndex: isDragging || manualDragging ? 1000 : 1,
-    transition: isDragging || manualDragging ? "none" : "transform 0.2s",
+    transition:
+      isDragging || manualDragging
+        ? "none"
+        : "transform 0.2s, box-shadow 0.2s, filter 0.2s",
     touchAction: "none",
     WebkitTouchCallout: "none",
     WebkitUserSelect: "none",
     userSelect: "none",
+    // 拡大選択モード時のスタイル
+    boxShadow: isZoomSelectMode ? "0 0 0 2px rgba(245, 158, 11, 0.3)" : "",
+    filter: isZoomSelectMode ? "brightness(1.05)" : "",
   };
+
+  // hoverスタイル用のステート
+  const [isHovered, setIsHovered] = useState(false);
+
+  // カードホバー用のスタイルを追加
+  const additionalClasses =
+    isZoomSelectMode && isHovered
+      ? "ring-2 ring-amber-400 filter brightness-110"
+      : "";
 
   // refの結合関数（cardRefとdragRefを統合）
   const setCombinedRef = (element) => {
@@ -796,6 +859,9 @@ const DraggableCard = ({
           // 山札以外のカードはスクロールを防止
           e.stopPropagation();
 
+          // 長押し検出を開始
+          handleLongPressStart();
+
           // 手動ドラッグ開始
           handleManualDragStart(e);
         }
@@ -804,6 +870,9 @@ const DraggableCard = ({
         if (actualZone !== "deck") {
           // 山札以外のカードはスクロールを防止
           e.stopPropagation();
+
+          // 長押しをキャンセル（移動したので）
+          handleLongPressEnd();
 
           // 手動ドラッグ移動
           handleManualDragMove(e);
@@ -815,14 +884,19 @@ const DraggableCard = ({
           // 山札以外のカードはスクロールを防止
           e.stopPropagation();
 
+          // 長押しをキャンセル
+          handleLongPressEnd();
+
           // ドラッグしているかに関わらず、タッチ終了を処理
           // (handleManualDragEnd内で動作を判断)
           handleManualDragEnd(e);
         }
       }}
-      className="absolute touch-none select-none"
+      className={`absolute touch-none select-none ${additionalClasses}`}
       draggable={false}
       data-card-id={id}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       // マウスクリック専用ハンドラ（スマホはonTouchEndで処理）
       onClick={(e) => {
         // スマホデバイスでは処理をスキップ（touchendで処理する）

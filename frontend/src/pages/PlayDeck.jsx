@@ -230,6 +230,35 @@ function PlayDeck() {
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
   const [activeMode, setActiveMode] = useState(null); // アクティブなモードを一元管理
   const [isShuffling, setIsShuffling] = useState(false); // シャッフルアニメーション状態
+  const [zoomCardData, setZoomCardData] = useState(null); // ズーム表示するカードデータ
+  const [isZoomSelectMode, setIsZoomSelectMode] = useState(false); // 拡大カード選択モード
+
+  // カード拡大表示モードをトグル
+  const toggleZoomSelectMode = useCallback(() => {
+    setIsZoomSelectMode((prev) => !prev);
+    // 他のモードを解除
+    if (!isZoomSelectMode) {
+      setActiveMode(null);
+    }
+  }, [isZoomSelectMode]);
+
+  // カード拡大表示の開始
+  const handleZoomCard = useCallback(
+    (cardId) => {
+      const card = state.cards.find((card) => card.id === cardId);
+      if (card) {
+        setZoomCardData(card);
+        // カードを選択したら選択モードを終了
+        setIsZoomSelectMode(false);
+      }
+    },
+    [state.cards]
+  );
+
+  // カード拡大表示を閉じる
+  const handleCloseZoom = useCallback(() => {
+    setZoomCardData(null);
+  }, []);
 
   // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
   const ensureAbsoluteUrl = (url) => {
@@ -242,7 +271,12 @@ function PlayDeck() {
 
   // モード切り替え関数
   const activateMode = useCallback((mode) => {
+    // 現在と同じモードをクリックしたら解除、それ以外なら切り替え
     setActiveMode((currentMode) => (currentMode === mode ? null : mode));
+    // モードが有効になったら拡大モードを無効に
+    if (mode) {
+      setIsZoomSelectMode(false);
+    }
   }, []);
 
   const deactivateMode = useCallback(() => {
@@ -473,88 +507,94 @@ function PlayDeck() {
     dispatch({ type: ACTIONS.DRAW_CARD });
   }, [state.cards]);
 
-  // カードのクリック処理（フィールド・手札共通）
+  // フィールドカードの回転ハンドラ（個別に追加）
+  const handleRotateFieldCard = useCallback(
+    (cardId) => {
+      console.log("[PlayDeck] カードを回転: id=", cardId);
+      dispatch({
+        type: ACTIONS.ROTATE_CARD,
+        payload: { id: cardId },
+      });
+    },
+    [dispatch]
+  );
+
+  // カードクリックのハンドラ
   const handleCardClick = useCallback(
     (cardId) => {
-      console.log(
-        "[DEBUG] PlayDeck.handleCardClick called with cardId:",
-        cardId
-      );
-
+      console.log("[PlayDeck] カードクリック: id=", cardId);
       const card = state.cards.find((card) => card.id === cardId);
+      if (!card) return;
 
-      if (!card) {
-        console.error("[ERROR] Card not found with id:", cardId);
-        console.log(
-          "[DEBUG] Available cards:",
-          state.cards.map((c) => ({ id: c.id, zone: c.zone }))
-        );
+      // 拡大カード選択モードの場合
+      if (isZoomSelectMode) {
+        console.log("[PlayDeck] 拡大表示するカードを選択: id=", cardId);
+        handleZoomCard(cardId);
         return;
       }
 
-      console.log("[DEBUG] Found card:", card);
-
-      // 裏返しモードの場合
-      if (
-        isModeActive("flip") &&
-        (card.zone === "field" || card.zone === "hand")
-      ) {
-        dispatch({
-          type: ACTIONS.FLIP_CARD,
-          payload: { id: cardId },
-        });
-        deactivateMode();
-        return;
-      }
-
-      // 山札の上に戻すモードの場合
-      if (
-        isModeActive("deckTop") &&
-        (card.zone === "field" || card.zone === "hand")
-      ) {
+      // モードに応じた処理
+      if (activeMode === "deckTop") {
+        // 山札の上に戻すモード
+        console.log("[PlayDeck] 山札の上に戻します: ", card);
         dispatch({
           type: ACTIONS.MOVE_CARD_ZONE,
-          payload: {
-            id: card.id,
-            newZone: "deck",
-            newProps: { isFlipped: true },
-            insertAtTop: true,
-          },
-        });
-        deactivateMode();
-        return;
-      }
-
-      // 山札の下に戻すモードの場合
-      if (
-        isModeActive("deckBottom") &&
-        (card.zone === "field" || card.zone === "hand")
-      ) {
-        dispatch({
-          type: ACTIONS.MOVE_CARD_ZONE,
-          payload: {
-            id: card.id,
-            newZone: "deck",
-            newProps: { isFlipped: true },
-            insertAtTop: false,
-          },
-        });
-        deactivateMode();
-        return;
-      }
-
-      // 通常時は回転
-      if (card.zone === "field") {
-        dispatch({
-          type: ACTIONS.ROTATE_CARD,
           payload: {
             id: cardId,
-            rotation: ((card.rotation || 0) + 90) % 360,
+            newZone: "deck",
+            insertAtTop: true, // 山札の上に追加
           },
+        });
+        // モードを解除
+        deactivateMode();
+      } else if (activeMode === "deckBottom") {
+        // 山札の下に戻すモード
+        console.log("[PlayDeck] 山札の下に戻します: ", card);
+        dispatch({
+          type: ACTIONS.MOVE_CARD_ZONE,
+          payload: {
+            id: cardId,
+            newZone: "deck",
+            insertAtTop: false, // 山札の下に追加
+          },
+        });
+        // モードを解除
+        deactivateMode();
+      } else if (activeMode === "flip") {
+        // カードを裏返すモード
+        console.log("[PlayDeck] カードを裏返します: id=", cardId);
+        dispatch({
+          type: ACTIONS.FLIP_CARD,
+          payload: {
+            id: cardId,
+          },
+        });
+        // 1回操作したらモードを解除
+        deactivateMode();
+      } else {
+        // 通常モードの処理
+        // 手札のカードの場合は回転させない
+        if (card.zone === "hand") {
+          console.log("[PlayDeck] 手札のカードは回転できません: id=", cardId);
+          return;
+        }
+
+        // フィールド上のカードのみ90度回転
+        console.log("[PlayDeck] カードを90度回転します: id=", cardId);
+        dispatch({
+          type: ACTIONS.ROTATE_CARD,
+          payload: { id: cardId },
         });
       }
     },
-    [activeMode, state.cards, deactivateMode, isModeActive]
+    [
+      activeMode,
+      state.cards,
+      dispatch,
+      deactivateMode,
+      handleZoomCard,
+      isZoomSelectMode,
+    ]
   );
 
   // 手札から場へのドロップ処理 (FreePlacementArea用)
@@ -791,8 +831,10 @@ function PlayDeck() {
               onDropCard={handleDropToField}
               onMoveCard={handleMoveFieldCard}
               onClickCard={handleCardClick}
+              onRotateCard={handleRotateFieldCard}
               onInit={handleFieldInit}
-              className="w-full h-full bg-white rounded shadow-inner border border-gray-300 overflow-auto"
+              isZoomSelectMode={isZoomSelectMode}
+              className="w-full h-full rounded shadow-inner border border-gray-300 overflow-auto"
             />
           </div>
 
@@ -809,6 +851,7 @@ function PlayDeck() {
                 onClickCard={handleCardClick}
                 activeMode={activeMode}
                 isShuffling={isShuffling}
+                isZoomSelectMode={isZoomSelectMode}
                 onDropFromField={handleDropFromField}
               />
             </div>
@@ -942,10 +985,92 @@ function PlayDeck() {
                   </span>
                 </button>
               </div>
+              <button
+                className={`w-10 h-10 rounded-full shadow-sm transition-all duration-200 flex items-center justify-center ${
+                  isZoomSelectMode
+                    ? "bg-amber-400 hover:bg-amber-500 text-white border-amber-600"
+                    : "bg-white hover:bg-amber-50 border border-amber-100"
+                }`}
+                onClick={toggleZoomSelectMode}
+                aria-label={
+                  isZoomSelectMode
+                    ? "カード拡大選択モードを解除"
+                    : "カード拡大選択モードに切替"
+                }
+                title={
+                  isZoomSelectMode
+                    ? "クリックでモード解除"
+                    : "クリックして拡大するカードを選択するモードに切替"
+                }
+              >
+                <span className="text-xl">🔍</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* 拡大カード選択モード時の案内表示 */}
+      {isZoomSelectMode && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-amber-50 border border-amber-300 rounded-lg px-4 py-2 shadow-lg z-40">
+          <div className="text-amber-800 text-center">
+            <p>拡大するカードを選択してください</p>
+          </div>
+        </div>
+      )}
+
+      {/* カード拡大表示モーダル */}
+      {zoomCardData && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4"
+          onClick={handleCloseZoom}
+        >
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            {/* 拡大カード */}
+            <div
+              className="rounded-lg overflow-hidden shadow-2xl"
+              style={{
+                width: "240px",
+                height: "336px",
+                backgroundColor: "#fff",
+              }}
+            >
+              {zoomCardData.isFlipped ? (
+                <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white">
+                  裏面
+                </div>
+              ) : (
+                <img
+                  src={
+                    zoomCardData.imageUrl ||
+                    apiEndpoints.cards.getFallbackImage()
+                  }
+                  alt={zoomCardData.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // 画像読み込みエラー時のフォールバック
+                    if (zoomCardData.cardId) {
+                      e.target.src = apiEndpoints.cards.getImageById(
+                        zoomCardData.cardId
+                      );
+                    } else {
+                      e.target.src = apiEndpoints.cards.getFallbackImage();
+                    }
+                  }}
+                />
+              )}
+            </div>
+
+            {/* 閉じるボタン */}
+            <button
+              className="absolute top-2 right-2 bg-white bg-opacity-70 rounded-full w-8 h-8 flex items-center justify-center text-gray-800 hover:bg-opacity-100"
+              onClick={handleCloseZoom}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </DndProvider>
   );
 }
