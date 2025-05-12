@@ -642,11 +642,34 @@ function PlayDeck() {
       // スマホの場合はitem.cardIdも確認（グローバル変数から取得した場合）
       const actualCard = state.cards.find(
         (card) =>
-          card.id === cardId || (card.cardId && card.cardId === item.cardId)
+          card.id === cardId ||
+          (card.cardId && card.cardId === item.cardId) ||
+          // type/zoneのチェックも追加（ID不一致の場合の対応）
+          card.id === item.cardId ||
+          card.cardId === item.id
       );
 
       if (!actualCard) {
         console.error("[PlayDeck] Could not find card with id:", cardId);
+        // デバッグ用にcardIdとstateを表示
+        console.log("[PlayDeck] Debug card lookup:", {
+          itemId: item.id,
+          itemCardId: item.cardId,
+          allCards: state.cards.map((c) => ({
+            id: c.id,
+            cardId: c.cardId,
+            zone: c.zone,
+          })),
+        });
+
+        // 最終手段としてフィールドのカードを探す
+        const fieldCards = state.cards.filter((card) => card.zone === "field");
+        if (fieldCards.length > 0) {
+          console.log("[PlayDeck] Trying to find any field card as fallback");
+          // カードが見つからない場合は、いずれかのフィールドカードを使用
+          return handleDropFromField({ ...item, id: fieldCards[0].id });
+        }
+
         return;
       }
 
