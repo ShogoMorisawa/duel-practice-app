@@ -260,7 +260,21 @@ const DraggableCard = ({
     const deltaY = touch.clientY - touchStartPos.current.y;
     const duration = Date.now() - dragStartTimeRef.current;
 
-    // 移動距離が少なく、短時間なら「タップ」と判定
+    // 拡大モード時はより寛容な条件でタップ判定
+    if (isZoomSelectMode) {
+      // 拡大モード時は距離の許容値を増やし、タップ判定を優先する
+      const isZoomTap =
+        Math.abs(deltaX) < 20 && Math.abs(deltaY) < 20 && duration < 500;
+      console.log("📱 isZoomTap calculation:", {
+        deltaX,
+        deltaY,
+        duration,
+        result: isZoomTap,
+      });
+      return isZoomTap;
+    }
+
+    // 通常モード時は厳格な条件でタップ判定
     const isTapEvent =
       Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10 && duration < 300;
     console.log("📱 isTap calculation:", {
@@ -676,7 +690,16 @@ const DraggableCard = ({
 
   // 通常クリック (左クリック) 処理
   const handleCardClick = () => {
-    // ドラッグ中または直後ならクリックイベント発火しない
+    // 拡大選択モードの場合は、ドラッグ関連の条件を無視して必ずクリックイベントを発火
+    if (isZoomSelectMode) {
+      console.log("[DEBUG] Card clicked in zoom select mode:", id);
+      if (onClick) {
+        onClick(id);
+      }
+      return;
+    }
+
+    // 通常モード時はドラッグ検出による制限を適用
     if (
       isDraggingRef.current ||
       isDragging ||
@@ -704,12 +727,12 @@ const DraggableCard = ({
     transform: `rotate(${rotation}deg)`,
     opacity: isDragging || manualDragging ? 0.5 : 1,
     cursor: isZoomSelectMode ? "pointer" : "move",
-    zIndex: isDragging || manualDragging ? 1000 : 1,
+    zIndex: isDragging || manualDragging ? 1000 : isZoomSelectMode ? 100 : 1,
     transition:
       isDragging || manualDragging
         ? "none"
         : "transform 0.2s, box-shadow 0.2s, filter 0.2s",
-    touchAction: "none",
+    touchAction: isZoomSelectMode ? "auto" : "none", // 拡大モード時はタッチアクションを制限しない
     WebkitTouchCallout: "none",
     WebkitUserSelect: "none",
     userSelect: "none",
@@ -855,6 +878,14 @@ const DraggableCard = ({
       onContextMenu={handleRotate}
       onTouchStart={(e) => {
         console.log("📱 Touch start on card:", id, "zone:", actualZone);
+
+        // 拡大選択モード時はドラッグを無効化し、タップ処理のみ行う
+        if (isZoomSelectMode) {
+          // 拡大モード時は伝播を止めないが、長押しとドラッグは無効化
+          handleLongPressStart(); // 長押し検出のみ開始（タップと長押しの区別のため）
+          return;
+        }
+
         if (actualZone !== "deck") {
           // 山札以外のカードはスクロールを防止
           e.stopPropagation();
@@ -867,54 +898,48 @@ const DraggableCard = ({
         }
       }}
       onTouchMove={(e) => {
-        if (actualZone !== "deck") {
-          // 山札以外のカードはスクロールを防止
+        // 拡大選択モード時は処理しない
+        if (isZoomSelectMode) return;
+
+        // 手動ドラッグ移動処理
+        if (manualDragging && actualZone !== "deck") {
           e.stopPropagation();
-
-          // 長押しをキャンセル（移動したので）
-          handleLongPressEnd();
-
-          // 手動ドラッグ移動
+          e.preventDefault();
           handleManualDragMove(e);
         }
       }}
       onTouchEnd={(e) => {
         console.log("📱 Touch end on card:", id);
-        if (actualZone !== "deck") {
-          // 山札以外のカードはスクロールを防止
-          e.stopPropagation();
 
-          // 長押しをキャンセル
+        // 拡大選択モード時はタップ判定のみ行う
+        if (isZoomSelectMode) {
           handleLongPressEnd();
 
-          // ドラッグしているかに関わらず、タッチ終了を処理
-          // (handleManualDragEnd内で動作を判断)
+          // タップとして処理し、クリックイベントを発火
+          if (isTap(e)) {
+            console.log("📱 Tap detected in zoom mode for card:", id);
+            handleCardClick();
+          }
+          return;
+        }
+
+        handleLongPressEnd();
+
+        if (manualDragging) {
+          e.stopPropagation();
           handleManualDragEnd(e);
+        } else if (isTap(e)) {
+          // タップとして処理
+          console.log("📱 Tap detected for card:", id);
+          handleCardClick();
         }
       }}
-      className={`absolute touch-none select-none ${additionalClasses}`}
-      draggable={false}
-      data-card-id={id}
+      onClick={!isFlipped ? handleCardClick : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      // マウスクリック専用ハンドラ（スマホはonTouchEndで処理）
-      onClick={(e) => {
-        // スマホデバイスでは処理をスキップ（touchendで処理する）
-        if ("ontouchstart" in window) {
-          console.log("スマホでのclick発火をスキップ");
-          return;
-        }
-
-        // PCでのクリック処理
-        if (isDragging || manualDragging) {
-          console.log("クリックをスキップ（ドラッグ中）");
-          return;
-        }
-
-        console.log("ブラウザのクリックイベントから処理");
-        handleCardClick();
-        e.stopPropagation();
-      }}
+      className={`card ${additionalClasses}`}
+      data-card-id={id}
+      data-card-zone={actualZone}
     >
       <Card
         id={id}

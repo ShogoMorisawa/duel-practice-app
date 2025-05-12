@@ -233,16 +233,66 @@ function PlayDeck() {
   const [zoomCardData, setZoomCardData] = useState(null); // ズーム表示するカードデータ
   const [isZoomSelectMode, setIsZoomSelectMode] = useState(false); // 拡大カード選択モード
 
-  // カード拡大表示モードをトグル
+  // モード切り替え関数
+  const activateMode = useCallback((mode) => {
+    // 現在と同じモードをクリックしたら解除、それ以外なら切り替え
+    setActiveMode((currentMode) => (currentMode === mode ? null : mode));
+    // モードが有効になったら拡大モードを無効に
+    if (mode) {
+      setIsZoomSelectMode(false);
+    }
+  }, []);
+
+  // 拡大モードの切替（スクロール制御も含む）
   const toggleZoomSelectMode = useCallback(() => {
-    setIsZoomSelectMode((prev) => !prev);
+    setIsZoomSelectMode((prev) => {
+      const newState = !prev;
+
+      // スマホ用のスクロール制御
+      if (typeof document !== "undefined") {
+        if (newState) {
+          // 拡大モード有効時：スクロールを抑制するためのクラスを追加
+          document.body.classList.add("zoom-select-mode");
+
+          // フィールドエリアにもクラスを追加
+          const fieldArea = document.querySelector(".free-placement-area");
+          if (fieldArea) {
+            fieldArea.classList.add("zoom-select-active");
+          }
+        } else {
+          // 拡大モード無効時：スクロール抑制を解除
+          document.body.classList.remove("zoom-select-mode");
+
+          // フィールドエリアのクラスも解除
+          const fieldArea = document.querySelector(".free-placement-area");
+          if (fieldArea) {
+            fieldArea.classList.remove("zoom-select-active");
+          }
+        }
+      }
+
+      return newState;
+    });
+
     // 他のモードを解除
     if (!isZoomSelectMode) {
       setActiveMode(null);
     }
   }, [isZoomSelectMode]);
 
-  // カード拡大表示の開始
+  const deactivateMode = useCallback(() => {
+    setActiveMode(null);
+  }, []);
+
+  // モードの状態を確認する関数
+  const isModeActive = useCallback(
+    (mode) => {
+      return activeMode === mode;
+    },
+    [activeMode]
+  );
+
+  // カード拡大表示モードをトグル
   const handleZoomCard = useCallback(
     (cardId) => {
       const card = state.cards.find((card) => card.id === cardId);
@@ -268,28 +318,6 @@ function PlayDeck() {
     // 絶対URLに変換
     return getAbsoluteImageUrl(url);
   };
-
-  // モード切り替え関数
-  const activateMode = useCallback((mode) => {
-    // 現在と同じモードをクリックしたら解除、それ以外なら切り替え
-    setActiveMode((currentMode) => (currentMode === mode ? null : mode));
-    // モードが有効になったら拡大モードを無効に
-    if (mode) {
-      setIsZoomSelectMode(false);
-    }
-  }, []);
-
-  const deactivateMode = useCallback(() => {
-    setActiveMode(null);
-  }, []);
-
-  // モードの状態を確認する関数
-  const isModeActive = useCallback(
-    (mode) => {
-      return activeMode === mode;
-    },
-    [activeMode]
-  );
 
   // 1. デッキデータ取得 Effect
   const fetchDeck = async () => {
