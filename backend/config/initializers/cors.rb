@@ -1,7 +1,10 @@
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    # ローカル開発でアクセスする可能性のあるフロントエンドのURLを列挙
-    origins '*'
+    # 環境に応じてオリジンを設定
+    origins Rails.env.production? ? [
+      'https://duel-practice-app.vercel.app',  # 本番環境のフロントエンドURL
+      /\.vercel\.app$/  # Vercelのプレビュー環境を許可
+    ] : '*'
 
     resource '*',
       headers: :any,
@@ -12,7 +15,11 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
 
   # ActiveStorage用の設定
   allow do
-    origins '*'
+    origins Rails.env.production? ? [
+      'https://duel-practice-app.vercel.app',  # 本番環境のフロントエンドURL
+      /\.vercel\.app$/  # Vercelのプレビュー環境を許可
+    ] : '*'
+    
     resource '/rails/active_storage/*',
       headers: :any,
       methods: [:get, :post, :patch, :put, :delete, :options, :head],
