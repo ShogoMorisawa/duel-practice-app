@@ -170,6 +170,8 @@ export const apiEndpoints = {
   uploads: {
     create: () => `${API_PREFIX}/uploads`,
   },
+  // プロキシ関連（CORSエラー対策用）
+  proxy: (url) => `${API_PREFIX}/proxy?url=${encodeURIComponent(url)}`,
 };
 
 // リクエストインターセプターを追加して、すべてのリクエストにAuthorizationヘッダーを自動付与
