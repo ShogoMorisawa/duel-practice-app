@@ -24,6 +24,8 @@ Rails.application.routes.draw do
         delete 'logout', to: 'sessions#destroy'
         post 'register', to: 'registrations#create'
       end
+      # より明示的なルート
+      post '/register', to: 'registrations#create'
       get 'profile', to: 'profiles#show'
     end
 
