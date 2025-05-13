@@ -94,12 +94,92 @@ const NewDeckForm = () => {
     };
   }, [isAuthenticated, navigate, state.cards]);
 
+  // 画像URLから画像を取得する関数（CORSエラー対策含む）
+  const fetchImageFromUrl = async (url) => {
+    try {
+      // 直接URLから取得を試みる
+      const response = await fetch(url, { mode: "cors" });
+      return await response.blob();
+    } catch (error) {
+      console.warn("直接画像の取得に失敗しました:", error);
+
+      // CORSエラーの可能性があるため、サーバーサイドプロキシを使用して再試行
+      try {
+        // バックエンドにURLを渡してプロキシとして取得してもらう
+        // 注: このエンドポイントは実装されている必要があります
+        const proxyUrl = apiEndpoints.proxy
+          ? apiEndpoints.proxy(url)
+          : `/api/proxy?url=${encodeURIComponent(url)}`;
+        console.log("プロキシURLを使用して再試行:", proxyUrl);
+
+        const proxyResponse = await fetch(proxyUrl);
+        if (!proxyResponse.ok) {
+          throw new Error(`プロキシからの取得に失敗: ${proxyResponse.status}`);
+        }
+        return await proxyResponse.blob();
+      } catch (proxyError) {
+        console.error("プロキシを使用した画像取得にも失敗:", proxyError);
+        throw proxyError; // 元の呼び出し元に再スロー
+      }
+    }
+  };
+
+  // カードIDを判定する関数（dmXXrpX-XXX形式）
+  const isCardId = (text) => /^dm\d{2,}rp\d{1,}-[A-Za-z0-9]+$/.test(text);
+
+  // URLからカードIDを抽出する関数
+  const extractCardIdFromUrl = (url) => {
+    const match = url.match(/id=([a-zA-Z0-9-]+)/);
+    return match ? match[1] : null;
+  };
+
+  // カードIDから画像URLを構築する関数
+  const buildImageUrlFromCardId = (cardId) =>
+    `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${cardId}.jpg`;
+
+  // プロキシ経由で画像を取得する関数
+  const fetchImageFromProxy = async (url) => {
+    const encodedUrl = encodeURIComponent(url);
+    const response = await fetch(`/api/proxy?url=${encodedUrl}`);
+    if (!response.ok) throw new Error("プロキシ取得失敗");
+    return await response.blob();
+  };
+
+  // BlobをFileに変換する関数
+  const blobToFile = (blob, fileName) =>
+    new File([blob], fileName, { type: blob.type });
+
   const handleCardDrop = async (e, index) => {
     e.preventDefault();
 
-    // ドラッグデータの取得
+    // 使用可能なすべてのデータタイプを確認
+    console.log("利用可能なドラッグデータタイプ:", e.dataTransfer.types);
+
+    // まずtext/uri-listをチェック（一般的な画像ドラッグでよく使われる）
+    let imageUrl = null;
+    if (e.dataTransfer.types.includes("text/uri-list")) {
+      imageUrl = e.dataTransfer.getData("text/uri-list");
+      console.log("text/uri-listから取得したURL:", imageUrl);
+    }
+
+    // text/htmlからの画像URLを抽出（ウェブページから画像をドラッグした場合）
+    if (!imageUrl && e.dataTransfer.types.includes("text/html")) {
+      const htmlContent = e.dataTransfer.getData("text/html");
+      console.log("HTMLコンテンツを受け取りました:", htmlContent);
+
+      // imgタグからsrc属性を抽出
+      const imgMatch = htmlContent.match(/<img[^>]+src="([^">]+)"/i);
+      if (imgMatch && imgMatch[1]) {
+        imageUrl = imgMatch[1];
+        console.log("HTMLから抽出した画像URL:", imageUrl);
+      }
+    }
+
+    // 通常のテキストデータを取得
     const data = e.dataTransfer.getData("text");
+
     try {
+      // まずJSONとして解析を試みる（アプリ内カードドラッグの場合）
       const card = JSON.parse(data);
       if (card && card.name) {
         dispatch({
@@ -112,91 +192,187 @@ const NewDeckForm = () => {
             uploading: false, // 既存カードのドロップはアップロード不要
           },
         });
+        return; // 処理完了
       }
     } catch (error) {
-      console.error("ドラッグデータの解析に失敗しました:", error);
-      // JSONでなければURLとして処理
-      const imageUrl = data;
-      if (imageUrl) {
-        try {
-          // 画像URLからファイル名を抽出
-          const fileName = imageUrl.split("/").pop() || "unknown";
+      console.log("ドラッグデータはJSONではありません:", error);
+      // JSONではない場合は続行（URLまたはカードIDとして処理）
+    }
 
-          // アップロード中フラグを設定
-          dispatch({
-            type: "SET_CARD",
-            index,
-            payload: {
-              name: fileName,
-              imageUrl: imageUrl, // 元のURLを一時的に表示
-              uploading: true,
+    // テキストデータがカードIDかURLから抽出したカードIDかをチェック
+    let cardId = null;
+
+    // データがカードID形式かチェック
+    if (isCardId(data)) {
+      console.log("カードID形式を検出:", data);
+      cardId = data;
+    }
+    // データがカード詳細ページのURLかチェック
+    else if (
+      data.includes("takaratomy.co.jp/card/detail/") &&
+      data.includes("id=")
+    ) {
+      cardId = extractCardIdFromUrl(data);
+      console.log("URLからカードIDを抽出:", cardId);
+    }
+
+    // カードIDが取得できた場合、画像URLを構築
+    if (cardId) {
+      try {
+        const cardImageUrl = buildImageUrlFromCardId(cardId);
+        console.log("カードIDから構築した画像URL:", cardImageUrl);
+
+        // アップロード中フラグを設定
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: {
+            name: cardId, // 仮の名前としてカードID
+            imageUrl: null, // 一時的にnull
+            uploading: true,
+          },
+        });
+
+        // プロキシ経由で画像を取得
+        const blob = await fetchImageFromProxy(cardImageUrl);
+        const fileName = `${cardId}.jpg`;
+
+        // FormDataの作成
+        const formData = new FormData();
+        formData.append("file", blobToFile(blob, fileName));
+
+        // APIにアップロード
+        console.log("カード画像をアップロード:", fileName);
+        const uploadResponse = await uploadApi.post(
+          apiEndpoints.uploads.create(),
+          formData,
+          {
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
             },
-          });
-
-          // URLから画像を取得
-          const response = await fetch(imageUrl);
-          const blob = await response.blob();
-
-          // FormDataの作成
-          const formData = new FormData();
-          formData.append("file", blob, fileName);
-
-          // フォームデータの内容を確認（デバッグ用）
-          console.log("Drag&Drop FormData entries:");
-          for (let pair of formData.entries()) {
-            console.log(
-              `${pair[0]}: ${pair[1]} (${typeof pair[1]}, filename: ${
-                blob.name || "N/A"
-              })`
-            );
           }
+        );
 
-          // APIにアップロード
-          console.log("Uploading drag&drop to:", apiEndpoints.uploads.create());
-          const uploadResponse = await uploadApi.post(
-            apiEndpoints.uploads.create(),
-            formData,
-            {
-              headers: {
-                // ヘッダーからContent-Typeを削除し、axiosに自動設定させる
-                "X-Requested-With": "XMLHttpRequest",
-              },
-            }
+        // アップロード成功ならカードを更新
+        let responseImageUrl = uploadResponse.data.imageUrl;
+        let permanent_url = uploadResponse.data.image_url;
+
+        // 永続URLを優先し、ない場合は一時URLを使用
+        let displayUrl = permanent_url || responseImageUrl;
+
+        // 相対パスの場合は絶対URLに変換
+        displayUrl = ensureAbsoluteUrl(displayUrl);
+        console.log("使用するURL:", displayUrl);
+
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: {
+            name: cardId, // より良い名前があれば更新
+            imageUrl: displayUrl,
+            uploading: false, // アップロード完了
+          },
+        });
+        return; // 処理完了
+      } catch (error) {
+        console.error("カード画像の取得/アップロードに失敗:", error);
+        // エラー時
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: {
+            name: cardId || "エラー",
+            imageUrl: null,
+            uploading: false,
+            error: true,
+          },
+        });
+        return; // エラー処理完了
+      }
+    }
+
+    // JSON形式でなく、カードIDでもない場合は、取得した画像URLまたはテキストデータをURLとして処理
+    imageUrl = imageUrl || data;
+
+    if (imageUrl) {
+      try {
+        // 画像URLからファイル名を抽出
+        const fileName = imageUrl.split("/").pop() || "unknown";
+
+        // アップロード中フラグを設定
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: {
+            name: fileName,
+            imageUrl: imageUrl, // 元のURLを一時的に表示
+            uploading: true,
+          },
+        });
+
+        // 画像URLから直接または必要に応じてプロキシ経由で画像を取得
+        const blob = await fetchImageFromUrl(imageUrl);
+
+        // FormDataの作成
+        const formData = new FormData();
+        formData.append("file", blob, fileName);
+
+        // フォームデータの内容を確認（デバッグ用）
+        console.log("Drag&Drop FormData entries:");
+        for (let pair of formData.entries()) {
+          console.log(
+            `${pair[0]}: ${pair[1]} (${typeof pair[1]}, filename: ${
+              blob.name || "N/A"
+            })`
           );
-
-          // アップロード成功ならカードを更新
-          let imageUrl = uploadResponse.data.imageUrl;
-          let permanent_url = uploadResponse.data.image_url;
-
-          // 永続URLを優先し、ない場合は一時URLを使用
-          let displayUrl = permanent_url || imageUrl;
-
-          // 相対パスの場合は絶対URLに変換（blobは変換しない）
-          displayUrl = ensureAbsoluteUrl(displayUrl);
-          console.log("使用するURL:", displayUrl);
-
-          dispatch({
-            type: "SET_CARD",
-            index,
-            payload: {
-              name: fileName,
-              imageUrl: displayUrl,
-              uploading: false, // アップロード完了
-            },
-          });
-        } catch (error) {
-          console.error("URLからの画像取得に失敗しました:", error);
-          // エラー時もフラグを解除
-          dispatch({
-            type: "SET_CARD",
-            index,
-            payload: {
-              name: "エラー",
-              imageUrl: null,
-              uploading: false,
-            },
-          });
         }
+
+        // APIにアップロード
+        console.log("Uploading drag&drop to:", apiEndpoints.uploads.create());
+        const uploadResponse = await uploadApi.post(
+          apiEndpoints.uploads.create(),
+          formData,
+          {
+            headers: {
+              // ヘッダーからContent-Typeを削除し、axiosに自動設定させる
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          }
+        );
+
+        // アップロード成功ならカードを更新
+        let responseImageUrl = uploadResponse.data.imageUrl;
+        let permanent_url = uploadResponse.data.image_url;
+
+        // 永続URLを優先し、ない場合は一時URLを使用
+        let displayUrl = permanent_url || responseImageUrl;
+
+        // 相対パスの場合は絶対URLに変換（blobは変換しない）
+        displayUrl = ensureAbsoluteUrl(displayUrl);
+        console.log("使用するURL:", displayUrl);
+
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: {
+            name: fileName,
+            imageUrl: displayUrl,
+            uploading: false, // アップロード完了
+          },
+        });
+      } catch (error) {
+        console.error("URLからの画像取得に失敗しました:", error);
+        // エラー時もフラグを解除
+        dispatch({
+          type: "SET_CARD",
+          index,
+          payload: {
+            name: "エラー",
+            imageUrl: null,
+            uploading: false,
+            error: true,
+          },
+        });
       }
     }
   };
@@ -204,7 +380,14 @@ const NewDeckForm = () => {
   const handleCardDragStart = (e, card) => {
     e.dataTransfer.setData("text", JSON.stringify(card));
     if (card.imageUrl) {
+      // 標準的なURL形式をセット
       e.dataTransfer.setData("text/uri-list", card.imageUrl);
+
+      // HTMLタグとしてもセット（他のアプリケーションとの互換性向上）
+      const htmlContent = `<img src="${card.imageUrl}" alt="${
+        card.name || ""
+      }">`;
+      e.dataTransfer.setData("text/html", htmlContent);
     }
   };
 
