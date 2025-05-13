@@ -40,6 +40,9 @@ Rails.application.routes.draw do
     resources :cards, only: [] do
       get 'image', to: 'cards#image', on: :member
     end
+
+    # 画像プロキシAPI（CORS対策用）
+    get "proxy", to: "proxy#image"
   end
   
   # ActiveStorageのルーティング
