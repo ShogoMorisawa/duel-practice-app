@@ -7,6 +7,11 @@ module Api
       
       def create
         begin
+          # デバッグ用にリクエストの内容をログに出力
+          Rails.logger.info("Registration params: #{params.inspect}")
+          Rails.logger.info("Request body: #{request.body.read}")
+          request.body.rewind # body読み取り後に巻き戻す
+          
           user = User.new(user_params)
           
           if user.save

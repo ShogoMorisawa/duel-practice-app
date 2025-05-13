@@ -25,19 +25,20 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      console.log("Register: Sending request with data:", {
+      const payload = {
         user: {
           email,
           password,
           password_confirmation: passwordConfirmation,
         },
-      });
+      };
 
-      const response = await api.post(apiEndpoints.auth.register(), {
-        user: {
-          email,
-          password,
-          password_confirmation: passwordConfirmation,
+      console.log("Register: Sending request with data:", payload);
+      console.log("Register: JSON payload:", JSON.stringify(payload));
+
+      const response = await api.post(apiEndpoints.auth.register(), payload, {
+        headers: {
+          "Content-Type": "application/json",
         },
       });
 
