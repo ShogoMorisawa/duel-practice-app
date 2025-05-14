@@ -21,11 +21,19 @@ class ApplicationController < ActionController::Base
         jwt_token = request.headers['Authorization'].split(' ').last
         
         # デバッグログ
-        Rails.logger.info("JWT Token: #{jwt_token}")
+        Rails.logger.info("JWT Token in application_controller: #{jwt_token}")
+        Rails.logger.info("ENV['DEVISE_JWT_SECRET_KEY']: #{ENV['DEVISE_JWT_SECRET_KEY'] ? 'exists' : 'not set'}")
+        
+        # 明示的に同じ秘密鍵を使用
+        secret_key = ENV['DEVISE_JWT_SECRET_KEY']
+        Rails.logger.info("Using secret key: #{secret_key ? 'exists' : 'not set'}")
+        
+        # トークンをデコードする前にエンコードに使用された秘密鍵を確認
+        Rails.logger.info("Secret key length: #{secret_key&.length}")
         
         # トークンをデコード
-        decoded_token = JWT.decode(jwt_token, ENV['DEVISE_JWT_SECRET_KEY'] || Rails.application.credentials.secret_key_base, true, algorithm: 'HS256')
-        Rails.logger.info("Decoded token: #{decoded_token.inspect}")
+        decoded_token = JWT.decode(jwt_token, secret_key, true, { algorithm: 'HS256' })
+        Rails.logger.info("Decoded token in application_controller: #{decoded_token.inspect}")
         
         # トークンのペイロードからユーザーIDを取得（両方の形式をサポート）
         payload = decoded_token[0]
@@ -35,13 +43,15 @@ class ApplicationController < ActionController::Base
         @current_user = User.find(user_id)
         Rails.logger.info("Found user: #{@current_user.id}")
       rescue JWT::DecodeError => e
-        Rails.logger.error("JWT decode error: #{e.message}")
+        Rails.logger.error("JWT decode error in application_controller: #{e.message}")
+        Rails.logger.error("JWT token that failed: #{jwt_token}")
         render json: { error: '認証に失敗しました' }, status: :unauthorized
       rescue ActiveRecord::RecordNotFound => e
-        Rails.logger.error("User not found: #{e.message}")
+        Rails.logger.error("User not found in application_controller: #{e.message}")
         render json: { error: '認証に失敗しました' }, status: :unauthorized
       rescue => e
-        Rails.logger.error("Unexpected error: #{e.message}")
+        Rails.logger.error("Unexpected error in application_controller: #{e.class.name} - #{e.message}")
+        Rails.logger.error(e.backtrace.join("\n"))
         render json: { error: '認証に失敗しました' }, status: :unauthorized
       end
     end
