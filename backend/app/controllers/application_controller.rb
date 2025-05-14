@@ -19,10 +19,29 @@ class ApplicationController < ActionController::Base
     if request.headers['Authorization'].present?
       begin
         jwt_token = request.headers['Authorization'].split(' ').last
-        decoded_token = JWT.decode(jwt_token, ENV['DEVISE_JWT_SECRET_KEY'], true, algorithm: 'HS256')
-        user_id = decoded_token[0]['sub']
+        
+        # デバッグログ
+        Rails.logger.info("JWT Token: #{jwt_token}")
+        
+        # トークンをデコード
+        decoded_token = JWT.decode(jwt_token, ENV['DEVISE_JWT_SECRET_KEY'] || Rails.application.credentials.secret_key_base, true, algorithm: 'HS256')
+        Rails.logger.info("Decoded token: #{decoded_token.inspect}")
+        
+        # トークンのペイロードからユーザーIDを取得（両方の形式をサポート）
+        payload = decoded_token[0]
+        user_id = payload['sub'] || payload['user_id']
+        Rails.logger.info("Extracted user_id: #{user_id}")
+        
         @current_user = User.find(user_id)
-      rescue JWT::DecodeError, ActiveRecord::RecordNotFound
+        Rails.logger.info("Found user: #{@current_user.id}")
+      rescue JWT::DecodeError => e
+        Rails.logger.error("JWT decode error: #{e.message}")
+        render json: { error: '認証に失敗しました' }, status: :unauthorized
+      rescue ActiveRecord::RecordNotFound => e
+        Rails.logger.error("User not found: #{e.message}")
+        render json: { error: '認証に失敗しました' }, status: :unauthorized
+      rescue => e
+        Rails.logger.error("Unexpected error: #{e.message}")
         render json: { error: '認証に失敗しました' }, status: :unauthorized
       end
     end
