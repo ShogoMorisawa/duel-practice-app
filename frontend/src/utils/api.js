@@ -121,6 +121,7 @@ export const api = axios.create({
   baseURL: API_BASE_URL, // 絶対パスを使用
   headers: {
     "Content-Type": "application/json",
+    Accept: "application/json",
   },
   // 大きなファイルをアップロードできるように設定を追加
   maxContentLength: 100 * 1024 * 1024, // 100MB
@@ -191,6 +192,9 @@ api.interceptors.request.use((config) => {
   if (!config.headers["Content-Type"]) {
     config.headers["Content-Type"] = "application/json";
   }
+
+  // 常にJSONレスポンスを要求
+  config.headers["Accept"] = "application/json";
 
   console.log(`API Interceptor: Final headers:`, config.headers);
   return config;
