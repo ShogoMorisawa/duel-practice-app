@@ -313,7 +313,11 @@ Devise.setup do |config|
 
   # ==> JWT configuration
   config.jwt do |jwt|
-    jwt.secret = ENV['DEVISE_JWT_SECRET_KEY']
+    # 明示的に環境変数から秘密鍵を取得
+    secret_key = ENV['DEVISE_JWT_SECRET_KEY']
+    puts "Devise JWT Secret Key: #{secret_key ? 'exists (length: ' + secret_key.length.to_s + ')' : 'not set'}"
+    
+    jwt.secret = secret_key
     jwt.dispatch_requests = [
       ['POST', %r{^/api/auth/login$}],
       ['POST', %r{^/api/auth/register$}]
