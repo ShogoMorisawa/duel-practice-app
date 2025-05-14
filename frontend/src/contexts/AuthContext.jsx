@@ -24,8 +24,20 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       try {
         // ユーザープロフィールを取得するAPIエンドポイントを呼び出す
-        // 注意: このエンドポイントをバックエンドに追加する必要があります
-        const response = await api.get(`${apiEndpoints.auth.profile()}`);
+        console.log("AuthProvider: Fetching user profile with token", token);
+
+        // リクエストのデバッグ
+        console.log(`Requesting: GET ${apiEndpoints.auth.profile()}`);
+        console.log("Authorization header:", `Bearer ${token}`);
+
+        const response = await api.get(`${apiEndpoints.auth.profile()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: false,
+        });
+
+        console.log("AuthProvider: Profile response", response.data);
         setUser(response.data.data.user);
       } catch (error) {
         console.error("Failed to fetch user profile:", error);
@@ -55,9 +67,20 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     console.log("AuthProvider: Logout called");
     try {
-      // ログアウトAPIを呼び出す
-      await api.delete(apiEndpoints.auth.logout());
-      console.log("AuthProvider: Logout API call successful");
+      // 現在のトークンがあるか確認
+      if (token) {
+        // ログアウトAPIを呼び出す
+        console.log("AuthProvider: Calling logout API");
+        await api.delete(apiEndpoints.auth.logout(), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: false,
+        });
+        console.log("AuthProvider: Logout API call successful");
+      } else {
+        console.log("AuthProvider: No token found, skipping API call");
+      }
     } catch (err) {
       console.warn("AuthProvider: Logout API error:", err);
     } finally {
