@@ -38,6 +38,7 @@ export default function Login() {
         {
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           withCredentials: false,
           timeout: 60000,

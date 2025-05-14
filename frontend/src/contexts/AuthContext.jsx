@@ -56,6 +56,7 @@ export const AuthProvider = ({ children }) => {
         const response = await api.get(`${apiEndpoints.auth.profile()}`, {
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
           withCredentials: false,
         });
