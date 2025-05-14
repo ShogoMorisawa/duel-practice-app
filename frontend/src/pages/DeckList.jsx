@@ -43,13 +43,33 @@ const DeckList = () => {
   const fetchDecks = async () => {
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
     try {
-      const res = await api.get(apiEndpoints.decks.getAll());
+      console.log("DeckList: Fetching decks");
+      const token = localStorage.getItem("token");
+      console.log(
+        "DeckList: Token from localStorage:",
+        token ? "exists" : "not found"
+      );
+
+      const res = await api.get(apiEndpoints.decks.getAll(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        withCredentials: false,
+      });
+
+      console.log("DeckList: Decks fetched successfully", res.data);
       dispatch({ type: ACTIONS.SET_DECKS, payload: res.data });
     } catch (error) {
+      console.error("DeckList: Error fetching decks", error);
+      console.error("DeckList: Response status:", error.response?.status);
+      console.error("DeckList: Response data:", error.response?.data);
+
       const standardizedError = handleApiError(error, {
         context: "デッキ一覧取得",
       });
       dispatch({ type: ACTIONS.SET_ERROR, payload: standardizedError });
+    } finally {
+      dispatch({ type: ACTIONS.SET_LOADING, payload: false });
     }
   };
 
