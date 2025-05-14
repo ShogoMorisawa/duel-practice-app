@@ -175,13 +175,24 @@ export const apiEndpoints = {
 // リクエストインターセプターを追加して、すべてのリクエストにAuthorizationヘッダーを自動付与
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
+  console.log(`API Interceptor: Request to ${config.url}`);
+  console.log(`API Interceptor: Token exists: ${!!token}`);
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log(`API Interceptor: Authorization header set`);
+  } else {
+    console.log(
+      `API Interceptor: No token found, skipping Authorization header`
+    );
   }
+
   // Content-Typeが設定されていない場合のみ設定
   if (!config.headers["Content-Type"]) {
     config.headers["Content-Type"] = "application/json";
   }
+
+  console.log(`API Interceptor: Final headers:`, config.headers);
   return config;
 });
 

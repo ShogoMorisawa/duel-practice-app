@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
-import { api, apiEndpoints, handleApiError } from "../utils/api";
+import { handleApiError } from "../utils/api";
 
 export default function Login() {
   console.log("Login: Component rendering");
@@ -24,10 +24,22 @@ export default function Login() {
 
     try {
       console.log("Login: Submitting form");
-      const response = await api.post(apiEndpoints.auth.login(), {
-        email,
-        password,
-      });
+
+      // api インスタンスではなく axios を直接使用
+      const axios = (await import("axios")).default;
+      console.log("Login: Using axios directly");
+
+      const response = await axios.post(
+        "https://duel-practice-api.onrender.com/api/auth/login",
+        { email, password },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: false,
+          timeout: 60000,
+        }
+      );
 
       console.log("Login: Login successful, response =", response.data);
       const { data } = response.data;
@@ -41,6 +53,9 @@ export default function Login() {
       navigate("/decks");
     } catch (err) {
       console.error("Login: Error occurred", err);
+      console.error("Login: Response status:", err.response?.status);
+      console.error("Login: Response data:", err.response?.data);
+
       const standardizedError = handleApiError(err, { context: "ログイン" });
       setError(standardizedError.message);
     } finally {

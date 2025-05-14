@@ -104,16 +104,33 @@ const DeckList = () => {
 
     dispatch({ type: ACTIONS.SET_LOADING, payload: true });
     try {
-      await api.delete(apiEndpoints.decks.delete(id));
+      console.log("DeckList: Deleting deck with id:", id);
+      const token = localStorage.getItem("token");
+      console.log(
+        "DeckList: Token for delete:",
+        token ? "exists" : "not found"
+      );
+
+      await api.delete(apiEndpoints.decks.delete(id), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        withCredentials: false,
+      });
+
+      console.log("DeckList: Deck deleted successfully");
       dispatch({
         type: ACTIONS.SET_DECKS,
         payload: state.decks.filter((deck) => deck.id !== id),
       });
     } catch (error) {
+      console.error("DeckList: Error deleting deck:", error);
       const standardizedError = handleApiError(error, {
         context: "デッキ削除",
       });
       dispatch({ type: ACTIONS.SET_ERROR, payload: standardizedError });
+    } finally {
+      dispatch({ type: ACTIONS.SET_LOADING, payload: false });
     }
   };
 

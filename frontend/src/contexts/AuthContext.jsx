@@ -10,10 +10,33 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!token);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 初期化時に明示的にlocalStorageからトークンを読み込む
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    console.log(
+      "AuthProvider: Initial localStorage token check:",
+      storedToken ? "exists" : "not found"
+    );
+    if (storedToken && !token) {
+      console.log("AuthProvider: Setting token from localStorage");
+      setToken(storedToken);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   // トークンが変更されたときに認証状態を更新
   useEffect(() => {
     console.log("AuthProvider: Token changed", { token });
     setIsAuthenticated(!!token);
+
+    // トークンの変更を確実にlocalStorageに保存
+    if (token) {
+      console.log("AuthProvider: Saving token to localStorage");
+      localStorage.setItem("token", token);
+    } else {
+      console.log("AuthProvider: Removing token from localStorage");
+      localStorage.removeItem("token");
+    }
   }, [token]);
 
   // トークンがある場合、初回マウント時にユーザー情報を取得
@@ -57,11 +80,19 @@ export const AuthProvider = ({ children }) => {
     fetchUserProfile();
   }, [token]);
 
-  const login = (newToken, userData) => {
+  const login = async (newToken, userData) => {
     console.log("AuthProvider: Login called", { newToken, userData });
+
+    // まずlocalStorageに保存してから状態を更新
+    localStorage.setItem("token", newToken);
+    console.log("AuthProvider: Token saved to localStorage");
+
+    // 状態を更新
     setToken(newToken);
     setUser(userData);
-    localStorage.setItem("token", newToken);
+    setIsAuthenticated(true);
+
+    console.log("AuthProvider: Login complete, authenticated:", true);
   };
 
   const logout = async () => {
