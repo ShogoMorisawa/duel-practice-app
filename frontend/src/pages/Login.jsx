@@ -31,7 +31,12 @@ export default function Login() {
 
       const response = await axios.post(
         "https://duel-practice-api.onrender.com/api/auth/login",
-        { email, password },
+        {
+          user: {
+            email,
+            password,
+          },
+        },
         {
           headers: {
             "Content-Type": "application/json",
