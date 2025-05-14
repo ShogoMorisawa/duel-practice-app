@@ -106,10 +106,11 @@ const NewDeckForm = () => {
       // CORSエラーの可能性があるため、サーバーサイドプロキシを使用して再試行
       try {
         // バックエンドにURLを渡してプロキシとして取得してもらう
-        // 注: このエンドポイントは実装されている必要があります
-        const proxyUrl = apiEndpoints.proxy
-          ? apiEndpoints.proxy(url)
-          : `/api/proxy?url=${encodeURIComponent(url)}`;
+        // Render側のプロキシAPIを絶対URLで指定
+        const apiBaseUrl = "https://duel-practice-api.onrender.com";
+        const proxyUrl = `${apiBaseUrl}/api/proxy?url=${encodeURIComponent(
+          url
+        )}`;
         console.log("プロキシURLを使用して再試行:", proxyUrl);
 
         const proxyResponse = await fetch(proxyUrl);
@@ -140,7 +141,10 @@ const NewDeckForm = () => {
   // プロキシ経由で画像を取得する関数
   const fetchImageFromProxy = async (url) => {
     const encodedUrl = encodeURIComponent(url);
-    const response = await fetch(`/api/proxy?url=${encodedUrl}`);
+    // 絶対URLを使用してRenderのバックエンドに直接リクエストを送信
+    const response = await fetch(
+      `https://duel-practice-api.onrender.com/api/proxy?url=${encodedUrl}`
+    );
     if (!response.ok) throw new Error("プロキシ取得失敗");
     return await response.blob();
   };
