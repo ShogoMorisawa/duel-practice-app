@@ -7,7 +7,20 @@ module Api
       
       def create
         begin
-          user = User.new(user_params)
+          # デバッグ用にリクエストの内容をログに出力
+          Rails.logger.info("Registration params: #{params.inspect}")
+          Rails.logger.info("Request body: #{request.body.read}")
+          request.body.rewind # body読み取り後に巻き戻す
+          
+          # パラメータをより柔軟に処理
+          user_attributes = if params[:user].present?
+            params.require(:user).permit(:email, :password, :password_confirmation)
+          else
+            # user ネストがない場合のフォールバック
+            params.permit(:email, :password, :password_confirmation)
+          end
+          
+          user = User.new(user_attributes)
           
           if user.save
             # JWTトークンを生成

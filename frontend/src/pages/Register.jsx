@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
-import { api, apiEndpoints, handleApiError } from "../utils/api";
+import axios from "axios";
+import { handleApiError } from "../utils/api";
 
 export default function Register() {
   const { login } = useAuth();
@@ -25,20 +26,26 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      console.log("Register: Sending request with data:", {
+      const payload = {
         user: {
           email,
           password,
           password_confirmation: passwordConfirmation,
         },
-      });
+      };
 
-      const response = await api.post(apiEndpoints.auth.register(), {
-        user: {
-          email,
-          password,
-          password_confirmation: passwordConfirmation,
+      console.log("Register: Sending request with data:", payload);
+      console.log("Register: JSON payload:", JSON.stringify(payload));
+
+      const response = await axios({
+        method: "post",
+        url: "https://duel-practice-api.onrender.com/api/auth/register",
+        data: payload,
+        headers: {
+          "Content-Type": "application/json",
         },
+        withCredentials: false,
+        timeout: 60000,
       });
 
       console.log(
