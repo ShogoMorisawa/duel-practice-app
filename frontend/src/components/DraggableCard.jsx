@@ -36,21 +36,6 @@ const DraggableCard = ({
   deckId,
   cardId,
 }) => {
-  console.log("[DraggableCard] Props:", {
-    id,
-    name,
-    cost,
-    isFlipped,
-    type,
-    zone,
-    x,
-    y,
-    rotation,
-    imageUrl,
-    deckId,
-    cardId,
-  });
-
   // zoneがあればそれを使い、なければtypeを使う移行期コード
   const actualZone = zone || type;
 
@@ -73,10 +58,6 @@ const DraggableCard = ({
     currentPos.current = { x, y };
   }, [x, y]);
 
-  console.log(
-    `[DraggableCard] Rendering card ID: ${id} at Coords: {x: ${x}, y: ${y}}, rotation: ${rotation}, zone: ${actualZone}`
-  );
-
   // ドラッグ設定
   const [{ isDragging }, dragRef] = useDrag(
     () => ({
@@ -85,8 +66,6 @@ const DraggableCard = ({
         // ドラッグ開始時の時間を記録
         dragStartTimeRef.current = Date.now();
         isDraggingRef.current = true;
-        console.log("🧪 isDragging", true); // ドラッグ開始時のログ
-        console.log("[DEBUG] Drag starting for card:", id, "zone:", actualZone);
 
         // 実際のDBに存在するcardIdを優先的に使用
         const actualCardId = /^\d+$/.test(cardId) ? cardId : id;
@@ -107,23 +86,16 @@ const DraggableCard = ({
           cardId: actualCardId, // DBのIDを優先
         };
 
-        console.log("[DEBUG] Drag item data:", dragItem);
         return dragItem;
       },
       end: (item, monitor) => {
-        console.log("[DEBUG] Drag ending for card:", id);
         const delta = monitor.getDifferenceFromInitialOffset();
-        console.log("[DEBUG] Drag delta:", delta);
-        console.log("[DEBUG] Was drop result successful:", monitor.didDrop());
 
         if (delta) {
           const newX = Math.round(initialPos.x + delta.x);
           const newY = Math.round(initialPos.y + delta.y);
 
           if (onMove) {
-            console.log(
-              `[DEBUG] Card dragged to new position: {x: ${newX}, y: ${newY}}`
-            );
             onMove({
               id,
               x: newX,
@@ -135,38 +107,29 @@ const DraggableCard = ({
 
         // フラグをすぐにリセット
         isDraggingRef.current = false;
-        console.log("🧪 isDragging", false); // ドラッグ終了時のログ
       },
       collect: (monitor) => {
         const dragging = monitor.isDragging();
-        console.log("🧪 isDragging (collect)", dragging); // collect時のログ
         return {
           isDragging: dragging,
         };
       },
       options: {
         dropEffect: "move",
-        enableMouseEvents: true, // マウスイベントも有効に
-        enableTouchEvents: true,
-        touchSlop: 0,
-        delayTouchStart: 0,
-        ignoreContextMenu: true,
+        enableMouseEvents: true, // マウスによるドラッグを有効に
+        enableTouchEvents: true, // タッチによるドラッグを有効に
+        touchSlop: 0, // タッチの許容範囲を0に設定
+        delayTouchStart: 0, // タッチ開始の遅延を0に設定
+        ignoreContextMenu: true, // ドラッグ中の右クリックによるコンテキストメニューを無視
         captureDraggingState: true, // ドラッグ状態を確実に捕捉
       },
       // 山札はドラッグ不可
       canDrag: () => {
         const result = actualZone !== "deck";
-        console.log(
-          "[DEBUG] canDrag for card:",
-          id,
-          "zone:",
-          actualZone,
-          "result:",
-          result
-        );
         return result;
       },
     }),
+    // 依存配列 最新のカード情報に更新
     [
       id,
       name,
@@ -187,10 +150,7 @@ const DraggableCard = ({
   const handleManualDragStart = (e) => {
     if (actualZone === "deck") return; // 山札はドラッグ不可
 
-    // デバッグログを追加
-    console.log("📱 Manual touch start on:", id, "zone:", actualZone);
-
-    // タッチイベントでの位置取得
+    // ユーザーが触った位置を取得
     const touch = e.touches[0];
     if (!touch) return;
 
@@ -211,12 +171,6 @@ const DraggableCard = ({
 
     // タッチ開始時間を記録
     dragStartTimeRef.current = Date.now();
-    console.log(
-      "📱 Touch start position:",
-      touchStartPos.current,
-      "at time:",
-      dragStartTimeRef.current
-    );
 
     // グローバル変数に現在ドラッグ中のカード情報を格納（スマホ用）
     window.currentDraggedCard = {
@@ -237,8 +191,6 @@ const DraggableCard = ({
     // ドラッグ中フラグを設定
     window.isMobileCardDragging = true;
 
-    console.log("📱 Set global dragged card:", window.currentDraggedCard);
-
     // カードを強調表示（視覚的フィードバック）
     if (cardRef.current) {
       cardRef.current.style.boxShadow = "0 0 10px 2px rgba(59, 130, 246, 0.8)";
@@ -246,25 +198,56 @@ const DraggableCard = ({
     }
   };
 
-  // タップとドラッグを区別するためのタップ検出関数
-  const isTap = (touchEndEvent) => {
-    if (!touchEndEvent.changedTouches[0]) return false;
+  // 手動ドラッグ移動処理
+  const handleManualDragMove = (e) => {
+    // すでにドラッグ中なら処理続行、そうでなければドラッグ開始判定
+    if (!manualDragging) {
+      const touch = e.touches[0];
+      if (!touch) return;
 
-    const touch = touchEndEvent.changedTouches[0];
+      // 開始位置との差分を計算
+      const deltaX = touch.clientX - touchStartPos.current.x;
+      const deltaY = touch.clientY - touchStartPos.current.y;
+
+      // 移動量が十分あればドラッグ開始
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        setManualDragging(true);
+
+        // ドラッグ開始を明示的に設定
+        isDraggingRef.current = true;
+      } else {
+        return; // 移動量が少なければまだドラッグ開始しない
+      }
+    }
+
+    // 移動時の新しい位置を計算
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    // グローバル変数に最新のタッチ位置を更新
+    if (typeof window !== "undefined") {
+      window.lastTouchPosition = {
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    }
+
+    // 移動量を計算
     const deltaX = touch.clientX - touchStartPos.current.x;
     const deltaY = touch.clientY - touchStartPos.current.y;
-    const duration = Date.now() - dragStartTimeRef.current;
 
-    // 移動距離が少なく、短時間なら「タップ」と判定
-    const isTapEvent =
-      Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10 && duration < 300;
-    console.log("📱 isTap calculation:", {
-      deltaX,
-      deltaY,
-      duration,
-      result: isTapEvent,
-    });
-    return isTapEvent;
+    // カード要素の新しい位置を計算
+    const newX = currentPos.current.x + deltaX;
+    const newY = currentPos.current.y + deltaY;
+
+    // 表示を更新（実際のDOM操作）
+    if (cardRef.current) {
+      cardRef.current.style.left = `${newX}px`;
+      cardRef.current.style.top = `${newY}px`;
+    }
+
+    // 現在の要素がどのエリア上にあるかを確認（手札エリアへのドロップ判定）
+    checkDropTarget(touch.clientX, touch.clientY);
   };
 
   const handleManualDragEnd = (e) => {
@@ -310,8 +293,6 @@ const DraggableCard = ({
           window.lastFieldDropPosition &&
           window.lastFieldDropPosition.isOver
         ) {
-          console.log("📱 Card dropped from hand to field area:", id);
-
           // フィールドエリアの参照を取得
           const fieldArea = document.querySelector(".free-placement-area");
           if (fieldArea) {
@@ -379,11 +360,6 @@ const DraggableCard = ({
 
         // 手札から手札へのドラッグ処理（スマホ用）
         if (actualZone === "hand") {
-          console.log(
-            "📱 Hand card dropped - returning to original position:",
-            id
-          );
-
           // アニメーションで元の位置に戻す
           if (cardRef.current) {
             cardRef.current.style.transition = "all 0.3s ease-out";
@@ -447,11 +423,7 @@ const DraggableCard = ({
             touch.clientY <= handRect.bottom;
 
           if (isDroppedOnHandArea) {
-            console.log("📱 Card dropped on hand area:", id);
-
             if (actualZone === "field") {
-              console.log("📱 Field card dropped to hand area:", id);
-
               try {
                 // 手動でカスタムイベントを発火して手札エリアに通知
                 const dropEvent = new CustomEvent("mobile-card-drop", {
@@ -565,7 +537,6 @@ const DraggableCard = ({
 
         // 手札エリア以外の場所でドロップされた場合は通常の移動処理
         if (onMove) {
-          console.log("📱 Manual drag end:", { deltaX, deltaY, newX, newY });
           onMove({
             id,
             x: newX,
@@ -578,7 +549,6 @@ const DraggableCard = ({
       // グローバル変数は少し遅延してクリア
       setTimeout(() => {
         if (window.currentDraggedCard && window.currentDraggedCard.id === id) {
-          console.log("📱 Clearing global dragged card after timeout");
           window.currentDraggedCard = null;
           window.isMobileCardDragging = false;
         }
@@ -589,7 +559,6 @@ const DraggableCard = ({
 
     // タップだったか判定する
     if (isTap(e)) {
-      console.log("📱 This was a tap - calling parent onClick with id:", id);
       if (onClick) {
         onClick(id);
         return;
@@ -598,12 +567,24 @@ const DraggableCard = ({
 
     // グローバル変数をすぐにクリア（タップの場合）
     if (window.currentDraggedCard && window.currentDraggedCard.id === id) {
-      console.log("📱 Clearing global dragged card immediately (tap case)");
       window.currentDraggedCard = null;
       window.isMobileCardDragging = false;
     }
+  };
 
-    console.log("📱 Touch end without any action");
+  // タップとドラッグを区別するためのタップ検出関数
+  const isTap = (touchEndEvent) => {
+    if (!touchEndEvent.changedTouches[0]) return false;
+
+    const touch = touchEndEvent.changedTouches[0];
+    const deltaX = touch.clientX - touchStartPos.current.x;
+    const deltaY = touch.clientY - touchStartPos.current.y;
+    const duration = Date.now() - dragStartTimeRef.current;
+
+    // 移動距離が少なく、短時間なら「タップ」と判定
+    const isTapEvent =
+      Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10 && duration < 300;
+    return isTapEvent;
   };
 
   // 回転イベントハンドラ（右クリック）
@@ -614,9 +595,6 @@ const DraggableCard = ({
     // 回転処理
     if (onMove) {
       const newRotation = (rotation + 90) % 360;
-      console.log(
-        `[DEBUG] DraggableCard requesting rotation via right-click: ${rotation} -> ${newRotation}`
-      );
       onMove({
         id,
         x,
@@ -635,16 +613,12 @@ const DraggableCard = ({
       manualDragging ||
       Date.now() - dragStartTimeRef.current < 200
     ) {
-      console.log("[DEBUG] Ignoring click because card was recently dragged");
       return;
     }
-
-    console.log("[DEBUG] Card clicked (left click) in DraggableCard:", id);
 
     // 親から渡されたクリックハンドラのみを呼び出す
     // 回転処理は親コンポーネント側で行う
     if (onClick) {
-      console.log("[DEBUG] Calling parent onClick with id:", id);
       onClick(id);
     }
   };
@@ -670,62 +644,7 @@ const DraggableCard = ({
     dragRef(element);
   };
 
-  // 手動ドラッグ移動処理
-  const handleManualDragMove = (e) => {
-    // すでにドラッグ中なら処理続行、そうでなければドラッグ開始判定
-    if (!manualDragging) {
-      const touch = e.touches[0];
-      if (!touch) return;
-
-      // 開始位置との差分を計算
-      const deltaX = touch.clientX - touchStartPos.current.x;
-      const deltaY = touch.clientY - touchStartPos.current.y;
-
-      // 移動量が十分あればドラッグ開始
-      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-        setManualDragging(true);
-        console.log("📱 Starting manual drag based on movement");
-
-        // ドラッグ開始を明示的に設定
-        isDraggingRef.current = true;
-      } else {
-        return; // 移動量が少なければまだドラッグ開始しない
-      }
-    }
-
-    // 移動時の新しい位置を計算
-    const touch = e.touches[0];
-    if (!touch) return;
-
-    // グローバル変数に最新のタッチ位置を更新
-    if (typeof window !== "undefined") {
-      window.lastTouchPosition = {
-        x: touch.clientX,
-        y: touch.clientY,
-      };
-    }
-
-    // 移動量を計算
-    const deltaX = touch.clientX - touchStartPos.current.x;
-    const deltaY = touch.clientY - touchStartPos.current.y;
-
-    // カード要素の新しい位置を計算
-    const newX = currentPos.current.x + deltaX;
-    const newY = currentPos.current.y + deltaY;
-
-    // 表示を更新（実際のDOM操作）
-    if (cardRef.current) {
-      cardRef.current.style.left = `${newX}px`;
-      cardRef.current.style.top = `${newY}px`;
-    }
-
-    console.log("📱 Manual drag move:", { deltaX, deltaY, newX, newY });
-
-    // 現在の要素がどのエリア上にあるかを確認（手札エリアへのドロップ判定）
-    checkDropTarget(touch.clientX, touch.clientY);
-  };
-
-  // ドロップ対象のチェック（新しく追加）
+  // ドロップ対象のチェック
   const checkDropTarget = (x, y) => {
     // 手札エリアの要素を取得
     const handArea = document.querySelector(".hand-area");
@@ -791,7 +710,6 @@ const DraggableCard = ({
       style={style}
       onContextMenu={handleRotate}
       onTouchStart={(e) => {
-        console.log("📱 Touch start on card:", id, "zone:", actualZone);
         if (actualZone !== "deck") {
           // 山札以外のカードはスクロールを防止
           e.stopPropagation();
@@ -810,7 +728,6 @@ const DraggableCard = ({
         }
       }}
       onTouchEnd={(e) => {
-        console.log("📱 Touch end on card:", id);
         if (actualZone !== "deck") {
           // 山札以外のカードはスクロールを防止
           e.stopPropagation();
@@ -827,17 +744,14 @@ const DraggableCard = ({
       onClick={(e) => {
         // スマホデバイスでは処理をスキップ（touchendで処理する）
         if ("ontouchstart" in window) {
-          console.log("スマホでのclick発火をスキップ");
           return;
         }
 
         // PCでのクリック処理
         if (isDragging || manualDragging) {
-          console.log("クリックをスキップ（ドラッグ中）");
           return;
         }
 
-        console.log("ブラウザのクリックイベントから処理");
         handleCardClick();
         e.stopPropagation();
       }}
