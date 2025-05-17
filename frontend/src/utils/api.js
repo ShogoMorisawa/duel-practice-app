@@ -163,7 +163,7 @@ export const apiEndpoints = {
         ? `${API_PREFIX}/decks/${deckId}/cards/${cardId}/image`
         : `${API_PREFIX}/cards/${cardId}/image`,
     getImageById: (cardId) => `${API_PREFIX}/cards/${cardId}/image`,
-    getFallbackImage: () => `/images/card-not-found.png`, // カード画像が見つからない場合のフォールバック
+    getFallbackImage: () => `/images/no-image-card.png`, // カード画像が見つからない場合のフォールバック
   },
   // アップロード関連
   uploads: {
