@@ -5,13 +5,18 @@ module Api
     def image
       card = Card.find(params[:id])
 
-      # 所有権チェック：カードにデッキが紐づいていない、または別ユーザーのデッキなら拒否
+      # カードの所有者チェック
+      # デッキがnilまたはデッキの所有者が現在のユーザーでない場合は認証エラー
       if card.deck.nil? || card.deck.user_id != current_user.id
+        # 認証エラーの場合は401を返す
         return head :unauthorized
       end
 
       if card.image.attached?
-        redirect_to url_for(card.image)
+        # 画像が添付されている場合は一時的なURLを生成して返す
+        # ActiveStorageのURLヘルパーを使用（rails_blob_url）
+        temp_url = Rails.application.routes.url_helpers.rails_blob_url(card.image, only_path: false)
+        render json: { url: temp_url }
       else
         render json: { error: "画像が添付されていません" }, status: :not_found
       end
