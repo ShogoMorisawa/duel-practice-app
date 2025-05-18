@@ -2,6 +2,7 @@ class ApplicationController < ActionController::Base
   include ActionController::MimeResponds
   include ActionController::ImplicitRender
   include ActionController::StrongParameters
+  include JwtAuthenticatable
 
   # 認証を個別のコントローラーで制御するため、グローバルな認証は無効化
   # before_action :authenticate_user!
@@ -13,15 +14,6 @@ class ApplicationController < ActionController::Base
   def configure_permitted_parameters
     devise_parameter_sanitizer.permit(:sign_up, keys: [:email, :password, :password_confirmation])
     devise_parameter_sanitizer.permit(:sign_in, keys: [:email, :password])
-  end
-
-  # 認証が必要なアクションで使用するメソッド
-  def authenticate_user!
-    unless current_user
-      render json: { error: '認証が必要です' }, status: :unauthorized
-      return false
-    end
-    true
   end
 
   private
