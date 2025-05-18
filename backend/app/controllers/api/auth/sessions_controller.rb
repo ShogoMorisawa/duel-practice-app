@@ -3,7 +3,7 @@ module Api
     class SessionsController < ApplicationController
       # APIではセッション使わないので、CSRF/セッション系の保護は外す
       skip_before_action :verify_authenticity_token
-      skip_before_action :authenticate_user_from_token!, only: [:create]
+      skip_before_action :authenticate_user!, only: [:create]
 
       def create
         Rails.logger.info("SessionsController#create: Parameters: #{params.to_unsafe_h.except('password').inspect}")

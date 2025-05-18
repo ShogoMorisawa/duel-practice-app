@@ -4,12 +4,12 @@ module JwtAuthenticatable
   extend ActiveSupport::Concern
 
   included do
-    before_action :authenticate_user_from_token!, unless: :devise_controller?
+    before_action :authenticate_user!, unless: :devise_controller?
   end
 
   private
 
-  def authenticate_user_from_token!
+  def authenticate_user!
     header = request.headers['Authorization']
     header = header.split(' ').last if header
 

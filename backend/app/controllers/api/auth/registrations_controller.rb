@@ -2,7 +2,7 @@ module Api
   module Auth
     class RegistrationsController < ApplicationController
       # 認証とCSRF保護を無効化
-      skip_before_action :authenticate_user_from_token!, only: [:create]
+      skip_before_action :authenticate_user!, only: [:create]
       skip_before_action :verify_authenticity_token, only: [:create]
       
       def create

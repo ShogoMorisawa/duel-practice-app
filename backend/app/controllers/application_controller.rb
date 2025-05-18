@@ -4,7 +4,7 @@ class ApplicationController < ActionController::Base
   include ActionController::StrongParameters
 
   # 認証を個別のコントローラーで制御するため、グローバルな認証は無効化
-  # before_action :authenticate_user_from_token!
+  # before_action :authenticate_user!
   before_action :set_current_user_from_token
   before_action :configure_permitted_parameters, if: :devise_controller?
 
@@ -16,7 +16,7 @@ class ApplicationController < ActionController::Base
   end
 
   # 認証が必要なアクションで使用するメソッド
-  def authenticate_user_from_token!
+  def authenticate_user!
     unless current_user
       render json: { error: '認証が必要です' }, status: :unauthorized
       return false
