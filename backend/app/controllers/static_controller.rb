@@ -1,6 +1,6 @@
 class StaticController < ApplicationController
-  # authenticate_user!が定義されていないためコメントアウト
-  # skip_before_action :authenticate_user!
+  # 認証をスキップ
+  skip_before_action :set_current_user_from_token, only: [:images]
   
   def images
     path = params[:path]

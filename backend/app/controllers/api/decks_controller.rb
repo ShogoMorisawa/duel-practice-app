@@ -1,5 +1,7 @@
 module Api
   class DecksController < ApplicationController
+    before_action :authenticate_user_from_token!, except: [:card_image]
+
     def index
       if current_user
         decks = Deck.where(user_id: current_user.id)
@@ -32,6 +34,7 @@ module Api
     def card_image
       card = Card.find(params[:card_id])
       if card.image.attached?
+        # 認証不要で直接画像を返す
         redirect_to url_for(card.image)
       else
         render json: { error: "画像が添付されていません" }, status: :not_found

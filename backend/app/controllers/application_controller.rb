@@ -3,7 +3,9 @@ class ApplicationController < ActionController::Base
   include ActionController::ImplicitRender
   include ActionController::StrongParameters
 
-  before_action :authenticate_user_from_token!
+  # 認証を個別のコントローラーで制御するため、グローバルな認証は無効化
+  # before_action :authenticate_user_from_token!
+  before_action :set_current_user_from_token
   before_action :configure_permitted_parameters, if: :devise_controller?
 
   protected
@@ -13,9 +15,19 @@ class ApplicationController < ActionController::Base
     devise_parameter_sanitizer.permit(:sign_in, keys: [:email, :password])
   end
 
+  # 認証が必要なアクションで使用するメソッド
+  def authenticate_user_from_token!
+    unless current_user
+      render json: { error: '認証が必要です' }, status: :unauthorized
+      return false
+    end
+    true
+  end
+
   private
 
-  def authenticate_user_from_token!
+  # トークンからユーザーを設定するだけで例外はスローしない
+  def set_current_user_from_token
     if request.headers['Authorization'].present?
       begin
         jwt_token = request.headers['Authorization'].split(' ').last
@@ -45,15 +57,17 @@ class ApplicationController < ActionController::Base
       rescue JWT::DecodeError => e
         Rails.logger.error("JWT decode error in application_controller: #{e.message}")
         Rails.logger.error("JWT token that failed: #{jwt_token}")
-        render json: { error: '認証に失敗しました' }, status: :unauthorized
+        @current_user = nil
       rescue ActiveRecord::RecordNotFound => e
         Rails.logger.error("User not found in application_controller: #{e.message}")
-        render json: { error: '認証に失敗しました' }, status: :unauthorized
+        @current_user = nil
       rescue => e
         Rails.logger.error("Unexpected error in application_controller: #{e.class.name} - #{e.message}")
         Rails.logger.error(e.backtrace.join("\n"))
-        render json: { error: '認証に失敗しました' }, status: :unauthorized
+        @current_user = nil
       end
+    else
+      @current_user = nil
     end
   end
 
