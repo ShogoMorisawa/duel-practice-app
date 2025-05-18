@@ -152,7 +152,7 @@ const DeckList = () => {
           alt={deck.name}
           className="w-full h-full object-cover"
           onError={(e) => {
-            e.target.src = "/images/card-not-found.svg";
+            e.target.src = `${window.location.origin}/images/card-not-found.svg`;
           }}
         />
         {isGuest && (

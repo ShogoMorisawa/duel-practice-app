@@ -47,6 +47,9 @@ Rails.application.routes.draw do
     get "proxy", to: "proxy#image"
   end
   
+  # 静的ファイルへのアクセスを許可
+  get "/images/*path", to: "static#images"
+  
   # ActiveStorageのルーティング
   direct :rails_blob do |blob, options|
     route_for(:rails_service_blob, blob, options)

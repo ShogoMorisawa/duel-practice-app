@@ -182,7 +182,7 @@ const DeckDetail = () => {
                       "ゲストカード画像の読み込みに失敗:",
                       card.imageUrl
                     );
-                    e.target.src = "/images/card-not-found.svg";
+                    e.target.src = `${window.location.origin}/images/card-not-found.svg`;
                   }}
                 />
               ) : card.id ? (
