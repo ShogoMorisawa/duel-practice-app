@@ -50,6 +50,9 @@ Rails.application.routes.draw do
     get "/images/*path", to: "static#images"
   end
   
+  # ルートレベルでも静的ファイルへのアクセスを許可（フロントエンド互換性のため）
+  get "/images/*path", to: "api/static#images"
+  
   # ActiveStorageのルーティング
   direct :rails_blob do |blob, options|
     route_for(:rails_service_blob, blob, options)
