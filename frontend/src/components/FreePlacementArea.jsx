@@ -23,6 +23,7 @@ const FreePlacementArea = ({
 
   useEffect(() => {
     if (areaRef.current && onInit) {
+      // エリアのサイズを取得して初期化関数に渡す
       const { offsetWidth, offsetHeight } = areaRef.current;
       onInit({ width: offsetWidth, height: offsetHeight });
     }
@@ -60,11 +61,6 @@ const FreePlacementArea = ({
 
     // 手札からフィールドへのドロップ処理 (スマホ専用)
     const handleMobileHandToFieldDrop = (e) => {
-      console.log(
-        "[FreePlacementArea] mobile-hand-to-field-drop event received:",
-        e.detail
-      );
-
       const cardData = e.detail.cardData;
       if (cardData && onDropCard) {
         // フィールドへのドロップ座標を設定
@@ -75,10 +71,6 @@ const FreePlacementArea = ({
         };
 
         // ドロップ処理を呼び出し
-        console.log(
-          "[FreePlacementArea] Processing mobile hand-to-field drop:",
-          dropInfo
-        );
         onDropCard(dropInfo);
 
         // ホバー状態を解除
@@ -110,20 +102,6 @@ const FreePlacementArea = ({
     () => ({
       accept: "CARD",
       drop: (item, monitor) => {
-        console.log(
-          "[FreePlacementArea] Drop detected! Item:",
-          item,
-          "didDrop:",
-          monitor.didDrop()
-        );
-        console.log("[FreePlacementArea] Monitor state:", {
-          isOver: monitor.isOver(),
-          canDrop: monitor.canDrop(),
-          getDifferenceFromInitialOffset:
-            monitor.getDifferenceFromInitialOffset(),
-          getClientOffset: monitor.getClientOffset(),
-        });
-
         const offset = monitor.getClientOffset();
         const areaRect = areaRef.current?.getBoundingClientRect();
 
@@ -134,28 +112,15 @@ const FreePlacementArea = ({
 
         const x = areaRect ? offset.x - areaRect.left : offset.x;
         const y = areaRect ? offset.y - areaRect.top : offset.y;
-        console.log("[FreePlacementArea] Calculated drop coordinates:", {
-          x,
-          y,
-        });
 
         // zone か type プロパティを確認（移行期のため両方対応）
         const itemZone = item.zone || item.type;
 
         if (itemZone === "hand") {
-          console.log("[FreePlacementArea] Calling onDropCard (for hand drop)");
           onDropCard({ item, x, y }); // PlayDeck は {item, x, y} を受け取る
         } else if (itemZone === "field") {
-          console.log(
-            "[FreePlacementArea] Calling onMoveCard (for field drop/move)"
-          );
           // PlayDeck の handleMoveFieldCard は {id, x, y} を受け取る想定
           onMoveCard({ id: item.id, x, y });
-        } else {
-          console.log(
-            "[FreePlacementArea] Unknown item zone/type dropped:",
-            itemZone
-          );
         }
 
         return { dropped: true }; // ドロップ成功を明示的に返す
@@ -214,10 +179,6 @@ const FreePlacementArea = ({
           rotation={card.rotation || 0}
           onMove={onMoveCard}
           onClick={() => {
-            console.log(
-              "[DEBUG] DraggableCard onClick triggered in FreePlacementArea for card:",
-              card.id
-            );
             if (onClickCard) {
               onClickCard(card.id);
             } else {

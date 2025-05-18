@@ -45,9 +45,6 @@ const initialState = {
 
 // リデューサー関数を定義
 function reducer(state, action) {
-  console.log("[Reducer] Action:", action.type, "Payload:", action.payload);
-  console.log("[Reducer] Current state:", state);
-
   switch (action.type) {
     case ACTIONS.SET_LOADING:
       return { ...state, loading: action.payload };
@@ -59,7 +56,6 @@ function reducer(state, action) {
       return { ...state, error: action.payload, loading: false };
 
     case ACTIONS.ADD_CARD:
-      console.log("[Reducer] Adding card:", action.payload);
       return { ...state, cards: [...state.cards, action.payload] };
 
     case ACTIONS.MOVE_CARD_ZONE: {
@@ -74,12 +70,6 @@ function reducer(state, action) {
         return state;
       }
 
-      console.log(
-        `[Reducer] Moving card ${id} from ${updatedCard.zone} to ${newZone}`
-      );
-      console.log("[Reducer] Original card:", updatedCard);
-      console.log("[Reducer] New props:", newProps);
-
       const modifiedCard = {
         ...updatedCard,
         zone: newZone,
@@ -93,8 +83,6 @@ function reducer(state, action) {
         name: newProps.name || updatedCard.name,
         cost: newProps.cost || updatedCard.cost,
       };
-
-      console.log("[Reducer] Modified card:", modifiedCard);
 
       // ② 対象カードを除いた配列を作成
       const remainingCards = state.cards.filter((card) => card.id !== id);
@@ -118,7 +106,6 @@ function reducer(state, action) {
       const newCards = state.cards.map((card) =>
         card.id === id ? { ...card, x, y } : card
       );
-      console.log("[Reducer] Updating position:", id, x, y, newCards);
       return { ...state, cards: newCards };
     }
 
@@ -154,14 +141,12 @@ function reducer(state, action) {
           : card
       );
 
-      console.log("[Reducer] Flipping card:", id, "New state:", newCards);
       return { ...state, cards: newCards };
     }
 
     case ACTIONS.REMOVE_CARD: {
       const { id } = action.payload;
       const newCards = state.cards.filter((card) => card.id !== id);
-      console.log("[Reducer] Removing card:", id, newCards);
       return { ...state, cards: newCards };
     }
 
@@ -177,7 +162,6 @@ function reducer(state, action) {
           ? { ...card, zone: "hand", isFlipped: false }
           : card
       );
-      console.log("[Reducer] Drawing card:", cardToDraw.id, newCards);
       return { ...state, cards: newCards };
     }
 
@@ -194,7 +178,6 @@ function reducer(state, action) {
       }
 
       const newCards = [...otherCards, ...shuffled];
-      console.log("[Reducer] Shuffling deck:", newCards);
       return { ...state, cards: newCards };
     }
 
@@ -272,8 +255,6 @@ function PlayDeck() {
           guestDeckId = `guest-${guestDeckId}`;
         }
 
-        console.log("[PlayDeck] 使用するゲストデッキID:", guestDeckId);
-
         // ゲストデッキのJSONを取得
         const response = await fetch("/data/guestDecks.json");
         if (!response.ok) {
@@ -281,11 +262,6 @@ function PlayDeck() {
         }
 
         const guestDecks = await response.json();
-        console.log(
-          "[PlayDeck] 取得したゲストデッキ一覧:",
-          guestDecks.map((d) => d.id)
-        );
-
         const selectedDeck = guestDecks.find((deck) => deck.id === guestDeckId);
 
         if (!selectedDeck) {
@@ -294,7 +270,6 @@ function PlayDeck() {
           );
         }
 
-        console.log("[PlayDeck] ゲストデッキ情報をセットします:", selectedDeck);
         dispatch({ type: ACTIONS.SET_DECK_INFO, payload: selectedDeck });
 
         // ゲストモードではここでカードを追加せず、初期化Effectで統一的に配置する
@@ -334,7 +309,6 @@ function PlayDeck() {
 
   // フィールドサイズの初期化ハンドラ
   const handleFieldInit = useCallback((size) => {
-    console.log("フィールドサイズ取得:", size);
     setFieldSize(size);
   }, []);
 
@@ -349,16 +323,10 @@ function PlayDeck() {
       fieldSize.width > 0 && // フィールドサイズが取得されていることを確認
       state.cards.length === 0 // カードが追加されていない場合のみ実行（重複防止）
     ) {
-      console.log("[PlayDeck] 初期化開始");
-      console.log("[PlayDeck] デッキ情報:", state.deckInfo);
-      console.log("[PlayDeck] フィールドサイズ:", fieldSize);
-      console.log("[PlayDeck] カード枚数:", state.deckInfo.cards.length);
-
       // --- このブロックは初回のみ実行 ---
       initialized.current = true; // フラグを立てて再実行を防ぐ
 
       const cardDataList = [...state.deckInfo.cards];
-      console.log("[PlayDeck] カードデータリスト:", cardDataList.length);
 
       // シャッフル
       for (let i = cardDataList.length - 1; i > 0; i--) {
@@ -381,7 +349,6 @@ function PlayDeck() {
           deckId: deckId,
           cardId: cardData.id,
         });
-        console.log("[PlayDeck] シールドカード作成:", card);
         return card;
       });
 
@@ -397,7 +364,6 @@ function PlayDeck() {
           deckId: deckId,
           cardId: cardData.id,
         });
-        console.log("[PlayDeck] 手札カード作成:", card);
         return card;
       });
 
@@ -413,21 +379,13 @@ function PlayDeck() {
           deckId: deckId,
           cardId: cardData.id,
         });
-        console.log("[PlayDeck] 山札カード作成:", card);
         return card;
       });
-
-      console.log(
-        "[PlayDeck] カード追加開始 - 合計枚数:",
-        initialShield.length + initialHand.length + deckCards.length
-      );
 
       // 一括でカードを追加
       [...initialShield, ...initialHand, ...deckCards].forEach((card) => {
         dispatch({ type: ACTIONS.ADD_CARD, payload: card });
       });
-
-      console.log("[PlayDeck] カード追加完了");
     }
   }, [state.deckInfo, fieldSize, deckId, state.cards.length]);
 
@@ -476,23 +434,12 @@ function PlayDeck() {
   // カードのクリック処理（フィールド・手札共通）
   const handleCardClick = useCallback(
     (cardId) => {
-      console.log(
-        "[DEBUG] PlayDeck.handleCardClick called with cardId:",
-        cardId
-      );
-
       const card = state.cards.find((card) => card.id === cardId);
 
       if (!card) {
         console.error("[ERROR] Card not found with id:", cardId);
-        console.log(
-          "[DEBUG] Available cards:",
-          state.cards.map((c) => ({ id: c.id, zone: c.zone }))
-        );
         return;
       }
-
-      console.log("[DEBUG] Found card:", card);
 
       // 裏返しモードの場合
       if (
@@ -560,15 +507,6 @@ function PlayDeck() {
   // 手札から場へのドロップ処理 (FreePlacementArea用)
   const handleDropToField = useCallback(
     (dropInfo) => {
-      console.log("[DEBUG] handleDropToField called with:", dropInfo);
-      console.log("[DEBUG] Item details:", {
-        id: dropInfo.item?.id,
-        name: dropInfo.item?.name,
-        imageUrl: dropInfo.item?.imageUrl,
-        type: dropInfo.item?.type,
-        zone: dropInfo.item?.zone,
-      });
-
       // dropInfoは { item, x, y } 形式で渡される
       const { item, x, y } = dropInfo;
 
@@ -583,17 +521,6 @@ function PlayDeck() {
 
       if (isHandCard) {
         // 手札から場へ - 新しいフィールドカードを作成
-        console.log("[DEBUG] Creating field card from hand card:", {
-          name: item.name,
-          imageUrl: item.imageUrl,
-          isFlipped: item.isFlipped,
-          x: Math.round(x),
-          y: Math.round(y),
-          rotation: item.rotation,
-          deckId: deckId,
-          cardId: item.cardId,
-        });
-
         const fieldCard = createCard({
           name: item.name || "", // nameがなければ空文字
           imageUrl: item.imageUrl || null, // 🔥 元のimageUrlを確実に引き継ぐ
@@ -605,8 +532,6 @@ function PlayDeck() {
           deckId: deckId,
           cardId: item.cardId || item.id, // cardIdがなければitemのidを使用
         });
-
-        console.log("[DEBUG] Created field card:", fieldCard);
 
         // 新しいフィールドカードを追加（先に追加する）
         dispatch({
@@ -634,8 +559,6 @@ function PlayDeck() {
   // onDropFromFieldハンドラの修正
   const handleDropFromField = useCallback(
     (item) => {
-      console.log("[PlayDeck] Field card dropped to hand:", item);
-
       // スマホからのドロップは特別なIDが必要なため、実際のIDを確認
       const cardId = item.id;
 
@@ -651,29 +574,16 @@ function PlayDeck() {
 
       if (!actualCard) {
         console.error("[PlayDeck] Could not find card with id:", cardId);
-        // デバッグ用にcardIdとstateを表示
-        console.log("[PlayDeck] Debug card lookup:", {
-          itemId: item.id,
-          itemCardId: item.cardId,
-          allCards: state.cards.map((c) => ({
-            id: c.id,
-            cardId: c.cardId,
-            zone: c.zone,
-          })),
-        });
 
         // 最終手段としてフィールドのカードを探す
         const fieldCards = state.cards.filter((card) => card.zone === "field");
         if (fieldCards.length > 0) {
-          console.log("[PlayDeck] Trying to find any field card as fallback");
           // カードが見つからない場合は、いずれかのフィールドカードを使用
           return handleDropFromField({ ...item, id: fieldCards[0].id });
         }
 
         return;
       }
-
-      console.log("[PlayDeck] Found card to move to hand:", actualCard);
 
       // itemからの情報を確実に保持
       const cardInfo = {
@@ -690,8 +600,6 @@ function PlayDeck() {
           cost: actualCard.cost || item.cost,
         },
       };
-
-      console.log("[PlayDeck] Moving card to hand with props:", cardInfo);
 
       // 成功を示すために一時的にグローバル変数をクリア
       if (window.currentDraggedCard) {

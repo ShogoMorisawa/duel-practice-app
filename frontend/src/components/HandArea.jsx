@@ -30,16 +30,8 @@ const HandArea = ({
       const isHandCard = item.zone === "hand" || item.type === "hand";
 
       if (isFieldCard && onDropFromField) {
-        console.log(
-          "[HandArea] Field card dropped to hand via react-dnd:",
-          item
-        );
         onDropFromField(item);
       } else if (isHandCard) {
-        console.log(
-          "[HandArea] Hand card dropped to hand via react-dnd - ignoring:",
-          item
-        );
         // 手札から手札へのドロップは無視する（PCではもともと元の位置に戻る）
         // ここでは特に何もしない
         return false; // ドロップを拒否
@@ -57,18 +49,14 @@ const HandArea = ({
 
     const handleTouchStart = (e) => {
       handAreaEl.classList.add("hand-area-active");
-      console.log("[HandArea] TouchStart detected");
 
       // タッチ位置の情報を記録（デバッグ用）
       if (e.touches && e.touches[0]) {
         const touch = e.touches[0];
-        console.log("[HandArea] Touch position:", touch.clientX, touch.clientY);
       }
     };
 
     const handleTouchEnd = (e) => {
-      console.log("[HandArea] TouchEnd detected");
-
       // クラスを削除（視覚的フィードバック用）
       handAreaEl.classList.remove("hand-area-active");
       handAreaEl.classList.remove("hand-area-hover");
@@ -80,11 +68,6 @@ const HandArea = ({
         draggedCard &&
         (draggedCard.zone === "field" || draggedCard.type === "field")
       ) {
-        console.log(
-          "[HandArea] Potential mobile drop detected for card:",
-          draggedCard
-        );
-
         // 手札エリア内でのタッチ終了かどうかを確認
         const rect = handAreaEl.getBoundingClientRect();
         const touch = e.changedTouches[0];
@@ -96,7 +79,6 @@ const HandArea = ({
           touch.clientY >= rect.top &&
           touch.clientY <= rect.bottom
         ) {
-          console.log("[HandArea] Valid drop in hand area detected on mobile");
           // 有効なドロップとして処理
           if (onDropFromField) {
             onDropFromField(draggedCard);
@@ -138,18 +120,11 @@ const HandArea = ({
 
     // モバイル専用のカスタムイベントリスナー（DraggableCardからの通知用）
     const handleMobileCardDrop = (e) => {
-      console.log("[HandArea] mobile-card-drop event received:", e.detail);
-
       const cardData = e.detail.cardData;
       if (!cardData) return;
 
       // 手札から手札へのドロップを検出したら、元の位置に戻す視覚的効果を与える
       if (cardData.zone === "hand" || cardData.type === "hand") {
-        console.log(
-          "[HandArea] Hand-to-hand drop detected - returning to original position:",
-          cardData
-        );
-
         // カード要素を取得（現在ドラッグ中のもの）
         const cardElement = document.querySelector(
           `[data-card-id="${cardData.id}"]`
@@ -293,9 +268,6 @@ const HandArea = ({
                 onClick={() => onClickCard && onClickCard(card.id)}
                 onMove={() => {
                   // 手札内では位置の移動を許可しない（元の位置に戻す）
-                  console.log(
-                    "[HandArea] onMove called for hand card - ignoring and returning to original position"
-                  );
                   return false;
                 }}
                 imageUrl={card.imageUrl}
