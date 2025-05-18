@@ -140,7 +140,7 @@ const DeckList = () => {
       return deck.cards[0].imageUrl;
     }
     // デフォルト画像
-    return "/images/default-card.jpg";
+    return "/images/card-not-found.svg";
   };
 
   // 共通のデッキカードコンポーネント
@@ -152,7 +152,7 @@ const DeckList = () => {
           alt={deck.name}
           className="w-full h-full object-cover"
           onError={(e) => {
-            e.target.src = "/images/default-card.jpg";
+            e.target.src = "/images/card-not-found.svg";
           }}
         />
         {isGuest && (
