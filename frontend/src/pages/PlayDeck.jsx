@@ -237,7 +237,13 @@ function PlayDeck() {
     if (url.startsWith("http") || url.startsWith("blob:")) return url;
 
     // 絶対URLに変換
-    return getAbsoluteImageUrl(url);
+    try {
+      return getAbsoluteImageUrl(url);
+    } catch (error) {
+      console.error("[PlayDeck] URL変換エラー:", error);
+      // フォールバック画像を返す
+      return "/images/card-not-found.svg";
+    }
   };
 
   // モード切り替え関数
@@ -372,7 +378,7 @@ function PlayDeck() {
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
             ? ensureAbsoluteUrl(cardData.imageUrl)
-            : null,
+            : "/images/card-not-found.svg", // フォールバック画像を設定
           zone: "field",
           isFlipped: true,
           x: fieldSize.width / 2 - (5 * 60) / 2 + i * 60,
@@ -391,7 +397,7 @@ function PlayDeck() {
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
             ? ensureAbsoluteUrl(cardData.imageUrl)
-            : null,
+            : "/images/card-not-found.svg", // フォールバック画像を設定
           zone: "hand",
           isFlipped: false,
           deckId: deckId,
@@ -407,7 +413,7 @@ function PlayDeck() {
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
             ? ensureAbsoluteUrl(cardData.imageUrl)
-            : null,
+            : "/images/card-not-found.svg", // フォールバック画像を設定
           zone: "deck",
           isFlipped: true,
           deckId: deckId,

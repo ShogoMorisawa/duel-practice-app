@@ -163,8 +163,7 @@ export const apiEndpoints = {
         ? `${API_PREFIX}/decks/${deckId}/cards/${cardId}/image`
         : `${API_PREFIX}/cards/${cardId}/image`,
     getImageById: (cardId) => `${API_PREFIX}/cards/${cardId}/image`,
-    getFallbackImage: () =>
-      `${window.location.origin}/images/card-not-found.svg`, // 絶対パスで指定
+    getFallbackImage: () => `/images/card-not-found.svg`, // 相対パスで指定（Viteの公開ディレクトリから）
   },
   // アップロード関連
   uploads: {

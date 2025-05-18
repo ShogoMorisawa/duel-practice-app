@@ -1,5 +1,6 @@
 class StaticController < ApplicationController
-  skip_before_action :authenticate_user!
+  # authenticate_user!が定義されていないためコメントアウト
+  # skip_before_action :authenticate_user!
   
   def images
     path = params[:path]
