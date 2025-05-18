@@ -20,7 +20,7 @@ module Api
       if card.image.attached?
         # 画像が添付されている場合は一時的なURLを生成して返す
         # ActiveStorageのURLヘルパーを使用（rails_blob_url）
-        temp_url = Rails.application.routes.url_helpers.rails_blob_url(card.image, only_path: false)
+        temp_url = Rails.application.routes.url_helpers.rails_blob_url(card.image, host: request.base_url)
         render json: { url: temp_url }
       else
         render json: { error: "画像が添付されていません" }, status: :not_found

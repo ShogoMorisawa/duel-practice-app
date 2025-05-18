@@ -3,6 +3,9 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # デフォルトURLオプションのホスト設定
+  Rails.application.routes.default_url_options[:host] = 'https://duel-practice-api.onrender.com'
+
   # Code is not reloaded between requests.
   config.enable_reloading = false
 
