@@ -1,6 +1,6 @@
 module Api
   class CardsController < ApplicationController
-    before_action :authenticate_user_from_token!, except: [:image]
+    before_action :authenticate_user!, except: [:image]
 
     def image
       card = Card.find(params[:id])
@@ -27,6 +27,16 @@ module Api
       end
     rescue ActiveRecord::RecordNotFound
       render json: { error: "カードが見つかりません" }, status: :not_found
+    end
+
+    private
+
+    def authenticate_user!
+      unless current_user
+        render json: { error: '認証が必要です' }, status: :unauthorized
+        return false
+      end
+      true
     end
   end
 end

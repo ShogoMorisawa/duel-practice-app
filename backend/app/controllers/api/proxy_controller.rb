@@ -2,7 +2,7 @@ require 'net/http'
 
 class Api::ProxyController < ApplicationController
   skip_before_action :verify_authenticity_token
-  skip_before_action :authenticate_user_from_token!
+  skip_before_action :set_current_user_from_token
 
   def image
     url = params[:url]

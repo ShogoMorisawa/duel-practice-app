@@ -1,7 +1,7 @@
 module Api
   module Auth
     class ProfilesController < ApplicationController
-      before_action :authenticate_user_from_token!
+      before_action :authenticate_user!
 
       def show
         render json: {
@@ -12,6 +12,16 @@ module Api
             }
           }
         }
+      end
+
+      private
+
+      def authenticate_user!
+        unless current_user
+          render json: { error: '認証が必要です' }, status: :unauthorized
+          return false
+        end
+        true
       end
     end
   end

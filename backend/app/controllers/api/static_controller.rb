@@ -1,7 +1,6 @@
 module Api
   class StaticController < ApplicationController
     # 認証をスキップ
-    skip_before_action :set_current_user_from_token, only: [:images]
     
     def images
       path = params[:path]

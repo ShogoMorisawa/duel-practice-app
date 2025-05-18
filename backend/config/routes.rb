@@ -45,10 +45,10 @@ Rails.application.routes.draw do
 
     # 画像プロキシAPI（CORS対策用）
     get "proxy", to: "proxy#image"
+    
+    # 静的ファイルへのアクセスを許可
+    get "/images/*path", to: "static#images"
   end
-  
-  # 静的ファイルへのアクセスを許可
-  get "/images/*path", to: "static#images"
   
   # ActiveStorageのルーティング
   direct :rails_blob do |blob, options|

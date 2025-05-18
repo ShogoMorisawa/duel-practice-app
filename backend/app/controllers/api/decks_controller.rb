@@ -1,6 +1,6 @@
 module Api
   class DecksController < ApplicationController
-    before_action :authenticate_user_from_token!, except: [:card_image]
+    before_action :authenticate_user!, except: [:card_image]
 
     def index
       if current_user
@@ -85,6 +85,14 @@ module Api
         :name,
         cards: [:id, :name, :imageUrl]
       )
+    end
+
+    def authenticate_user!
+      unless current_user
+        render json: { error: '認証が必要です' }, status: :unauthorized
+        return false
+      end
+      true
     end
   end
 end
