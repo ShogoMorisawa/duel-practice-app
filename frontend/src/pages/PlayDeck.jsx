@@ -59,63 +59,94 @@ function reducer(state, action) {
       return { ...state, cards: [...state.cards, action.payload] };
 
     case ACTIONS.MOVE_CARD_ZONE: {
-      const { id, newZone, newProps = {}, insertAtTop } = action.payload;
+      const {
+        id,
+        newZone,
+        newProps = {},
+        insertAtTop = false,
+      } = action.payload;
+      const cardToMove = state.cards.find((card) => card.id === id);
 
-      // ① 対象カードを更新
-      const updatedCard = state.cards.find((card) => card.id === id);
-      if (!updatedCard) {
-        console.error(
-          `[Reducer] Card with id ${id} not found for MOVE_CARD_ZONE`
-        );
+      // カードが見つからない場合
+      if (!cardToMove) {
+        console.error(`[ERROR] Card with id ${id} not found in state`);
         return state;
       }
 
-      const modifiedCard = {
-        ...updatedCard,
+      // 移動するカードの情報を保存
+      // カードIDとデッキIDを必ず保持するように修正
+      const updatedCard = {
+        ...cardToMove,
         zone: newZone,
-        ...(newZone === "field" && !updatedCard.x ? { x: 0, y: 0 } : {}),
-        ...(newZone !== "field" ? { x: undefined, y: undefined } : {}),
         ...newProps,
-        // 重要な情報は常に維持
-        deckId: newProps.deckId || updatedCard.deckId,
-        cardId: newProps.cardId || updatedCard.cardId || updatedCard.id,
-        imageUrl: newProps.imageUrl || updatedCard.imageUrl,
-        name: newProps.name || updatedCard.name,
-        cost: newProps.cost || updatedCard.cost,
+        // 明示的に指定がない限り、既存の値を保持する
+        cardId: newProps.cardId || cardToMove.cardId,
+        deckId: newProps.deckId || cardToMove.deckId,
+        imageUrl: newProps.imageUrl || cardToMove.imageUrl,
       };
 
-      // ② 対象カードを除いた配列を作成
-      const remainingCards = state.cards.filter((card) => card.id !== id);
+      // フィールドからフィールド以外のゾーンに移動する場合、座標情報を削除
+      if (cardToMove.zone === "field" && newZone !== "field") {
+        delete updatedCard.x;
+        delete updatedCard.y;
+      }
 
-      // ③ zoneが"deck"で insertAtTop の場合、先頭 or 末尾に挿入
-      const newCards =
-        newZone === "deck"
-          ? insertAtTop
-            ? [modifiedCard, ...remainingCards]
-            : [...remainingCards, modifiedCard]
-          : [...remainingCards, modifiedCard];
+      // 更新されたカードを含まない他のカード
+      const otherCards = state.cards.filter((card) => card.id !== id);
 
+      // 山札に戻す場合、先頭か末尾に追加
+      if (newZone === "deck") {
+        // 山札の現在のカード
+        const deckCards = otherCards.filter((card) => card.zone === "deck");
+        const nonDeckCards = otherCards.filter((card) => card.zone !== "deck");
+
+        // 先頭に追加するか末尾に追加するか
+        const newDeckCards = insertAtTop
+          ? [updatedCard, ...deckCards]
+          : [...deckCards, updatedCard];
+
+        return {
+          ...state,
+          cards: [...nonDeckCards, ...newDeckCards],
+        };
+      }
+
+      // 通常のゾーン変更
       return {
         ...state,
-        cards: newCards,
+        cards: [...otherCards, updatedCard],
       };
     }
 
     case ACTIONS.UPDATE_POSITION: {
       const { id, x, y } = action.payload;
       const newCards = state.cards.map((card) =>
-        card.id === id ? { ...card, x, y } : card
+        card.id === id
+          ? {
+              ...card,
+              x: Math.round(x),
+              y: Math.round(y),
+              // cardIdとdeckIdを明示的に保持
+              cardId: card.cardId,
+              deckId: card.deckId,
+              imageUrl: card.imageUrl,
+            }
+          : card
       );
       return { ...state, cards: newCards };
     }
 
     case ACTIONS.ROTATE_CARD: {
-      const { id } = action.payload;
+      const { id, rotation } = action.payload;
       const newCards = state.cards.map((card) =>
         card.id === id
           ? {
               ...card,
-              rotation: ((card.rotation || 0) + 90) % 360,
+              rotation: rotation || ((card.rotation || 0) + 90) % 360,
+              // cardIdとdeckIdを明示的に保持
+              cardId: card.cardId,
+              deckId: card.deckId,
+              imageUrl: card.imageUrl,
             }
           : card
       );
@@ -123,7 +154,7 @@ function reducer(state, action) {
     }
 
     case ACTIONS.FLIP_CARD: {
-      const { id } = action.payload;
+      const { id, cardId, deckId } = action.payload;
       const cardToFlip = state.cards.find((card) => card.id === id);
 
       // カードが見つからない場合は何もしない
@@ -135,8 +166,9 @@ function reducer(state, action) {
               ...card,
               isFlipped: !card.isFlipped,
               // deckIdとcardIdを明示的に維持する
-              deckId: card.deckId,
-              cardId: card.cardId || card.id,
+              deckId: deckId || card.deckId,
+              cardId: cardId || card.cardId || card.id,
+              imageUrl: card.imageUrl,
             }
           : card
       );
@@ -159,7 +191,15 @@ function reducer(state, action) {
       const cardToDraw = deckCards[0];
       const newCards = state.cards.map((card) =>
         card.id === cardToDraw.id
-          ? { ...card, zone: "hand", isFlipped: false }
+          ? {
+              ...card,
+              zone: "hand",
+              isFlipped: false,
+              // 重要な情報を維持
+              cardId: card.cardId,
+              deckId: card.deckId,
+              imageUrl: card.imageUrl,
+            }
           : card
       );
       return { ...state, cards: newCards };
@@ -336,6 +376,8 @@ function PlayDeck() {
 
       // シールドカード
       const initialShield = cardDataList.slice(0, 5).map((cardData, i) => {
+        console.log("📊 Creating shield card", cardData);
+
         const card = createCard({
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
@@ -354,6 +396,8 @@ function PlayDeck() {
 
       // 手札カード
       const initialHand = cardDataList.slice(5, 10).map((cardData) => {
+        console.log("📊 Creating hand card", cardData);
+
         const card = createCard({
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
@@ -369,6 +413,8 @@ function PlayDeck() {
 
       // 山札カード
       const deckCards = cardDataList.slice(10).map((cardData) => {
+        console.log("📊 Creating deck card", cardData);
+
         const card = createCard({
           name: cardData.name || "",
           imageUrl: cardData.imageUrl
@@ -448,7 +494,11 @@ function PlayDeck() {
       ) {
         dispatch({
           type: ACTIONS.FLIP_CARD,
-          payload: { id: cardId },
+          payload: {
+            id: cardId,
+            cardId: card.cardId,
+            deckId: card.deckId,
+          },
         });
         deactivateMode();
         return;
@@ -464,7 +514,12 @@ function PlayDeck() {
           payload: {
             id: card.id,
             newZone: "deck",
-            newProps: { isFlipped: true },
+            newProps: {
+              isFlipped: true,
+              cardId: card.cardId,
+              deckId: card.deckId,
+              imageUrl: card.imageUrl,
+            },
             insertAtTop: true,
           },
         });
@@ -482,7 +537,12 @@ function PlayDeck() {
           payload: {
             id: card.id,
             newZone: "deck",
-            newProps: { isFlipped: true },
+            newProps: {
+              isFlipped: true,
+              cardId: card.cardId,
+              deckId: card.deckId,
+              imageUrl: card.imageUrl,
+            },
             insertAtTop: false,
           },
         });

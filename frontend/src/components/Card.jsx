@@ -42,7 +42,8 @@ const Card = ({
   // 画像URLを取得する関数
   const getCardImageUrl = () => {
     // シールドカードの処理を追加（裏面でも画像参照できるように）
-    const isShield = zone === "field" && isFlipped;
+    // 未使用変数警告を修正
+    // const isShield = zone === "field" && isFlipped;
 
     // cardIdがUUID形式または数値（DB ID）かどうかを確認
     const isValidDbId =
@@ -52,20 +53,41 @@ const Card = ({
           cardId
         )); // UUID形式
 
+    console.log("🔎 Card.getCardImageUrl", {
+      id,
+      cardId,
+      deckId,
+      isValidDbId,
+      imageUrl,
+      zone,
+    });
+
     // 画像URLの優先順位
+    let result;
     if (isValidDbId) {
       // 1. DBのIDがある場合はそれを使用
-      return ensureAbsoluteUrl(apiEndpoints.cards.getImageById(cardId));
+      result = ensureAbsoluteUrl(apiEndpoints.cards.getImageById(cardId));
+      console.log("📸 Using cardId URL:", result);
     } else if (deckId && id) {
       // 2. デッキIDとカードIDがある場合
-      return ensureAbsoluteUrl(apiEndpoints.cards.getImage(deckId, id));
+      result = ensureAbsoluteUrl(apiEndpoints.cards.getImage(deckId, id));
+      console.log("📸 Using deckId+id URL:", result);
     } else if (imageUrl) {
       // 3. 直接のimageUrlがある場合
-      return ensureAbsoluteUrl(imageUrl);
+      result = ensureAbsoluteUrl(imageUrl);
+      console.log("📸 Using direct imageUrl:", result);
+    } else {
+      // 4. フォールバック画像
+      result = ensureAbsoluteUrl(apiEndpoints.cards.getFallbackImage());
+      console.warn("📸 Card image URL fallback reached", {
+        cardId,
+        deckId,
+        imageUrl,
+        id,
+      });
     }
 
-    // 4. フォールバック画像
-    return ensureAbsoluteUrl(apiEndpoints.cards.getFallbackImage());
+    return result;
   };
 
   // zoneがあればそれを使い、なければtypeを使う移行期コード
@@ -159,6 +181,15 @@ const Card = ({
                   "[Card] 表面表示時に画像の読み込みに失敗:",
                   cardImageUrl
                 );
+
+                // 認証エラーの場合（401）はフォールバック画像を表示
+                if (e.target.status === 401) {
+                  const fallbackUrl = ensureAbsoluteUrl(
+                    apiEndpoints.cards.getFallbackImage()
+                  );
+                  e.target.src = fallbackUrl;
+                  return;
+                }
 
                 // cardIdがある場合は常に直接cardIdのURLを使用
                 if (cardId && /^\d+$/.test(cardId)) {

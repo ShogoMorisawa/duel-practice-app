@@ -1,12 +1,14 @@
 module Api
   class CardsController < ApplicationController
     before_action :authenticate_user_from_token!
+    
     def image
       card = Card.find(params[:id])
       
       # カードの所有者チェック
       # デッキがnilまたはデッキの所有者が現在のユーザーでない場合は認証エラー
       if card.deck.nil? || card.deck.user_id != current_user.id
+        # 認証エラーの場合は401を返す
         return head :unauthorized
       end
       
