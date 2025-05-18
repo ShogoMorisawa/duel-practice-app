@@ -9,8 +9,9 @@ module Api
       if current_user.present?
         # カードの所有者チェック
         if card.deck.present? && card.deck.user_id != current_user.id
-          # 認証エラーの場合でもフォールバック画像を返すように変更
-          Rails.logger.info "認証エラー: ユーザーID #{current_user.id} はカード #{card.id} の所有者ではありません"
+          # 所有者でない場合はアクセス拒否
+          head :forbidden
+          return
         end
       else
         Rails.logger.info "認証なしでカード #{card.id} の画像にアクセスしています"
