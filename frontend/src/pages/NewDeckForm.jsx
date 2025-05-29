@@ -135,8 +135,8 @@ const NewDeckForm = () => {
   };
 
   // カードIDから画像URLを構築する関数
-  const buildImageUrlFromCardId = (cardId) =>
-    `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${cardId}.jpg`;
+  // const buildImageUrlFromCardId = (cardId) =>
+  //   `https://dm.takaratomy.co.jp/wp-content/card/cardimage/${cardId}.jpg`;
 
   // プロキシ経由で画像を取得する関数
   const fetchImageFromProxy = async (url) => {
@@ -223,7 +223,7 @@ const NewDeckForm = () => {
     // カードIDが取得できた場合、画像URLを構築
     if (cardId) {
       try {
-        const cardImageUrl = buildImageUrlFromCardId(cardId);
+        const cardImageUrl = cardId;
         console.log("カードIDから構築した画像URL:", cardImageUrl);
 
         // アップロード中フラグを設定
