@@ -50,9 +50,15 @@ const Card = ({
   // カードIDから数値部分を抽出する関数
   const extractNumericId = (id) => {
     if (!id) return null;
-    // 数値のみを抽出
-    const match = id.match(/\d+/);
-    return match ? match[0] : null;
+
+    // 一時的なIDの場合は、imageUrlから数値IDを抽出
+    if (imageUrl) {
+      const match = imageUrl.match(/\/cards\/(\d+)\/image/);
+      return match ? match[1] : null;
+    }
+
+    // 一時的なIDでない場合は、そのまま返す
+    return id;
   };
 
   // カードIDが変更されたら画像URLを取得
