@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDrag } from "react-dnd";
-import { apiEndpoints, getAbsoluteImageUrl, api } from "../utils/api";
+import { apiEndpoints, getAbsoluteImageUrl } from "../utils/api";
 
 /**
  * カードコンポーネント
@@ -37,7 +37,6 @@ const Card = ({
 
   // 画像URLの状態変数
   const [actualImageUrl, setActualImageUrl] = useState(null);
-  const [imageError, setImageError] = useState(false);
 
   // URLが相対パスかどうかを確認し、必要に応じて絶対URLに変換する関数
   const ensureAbsoluteUrl = (url) => {
@@ -48,63 +47,27 @@ const Card = ({
     return getAbsoluteImageUrl(url);
   };
 
-  // 認証付きリクエストで画像URLを取得する関数
-  const fetchAuthenticatedImageUrl = async (id) => {
-    try {
-      // 数値IDまたはUUID形式のIDかチェック
-      const isValidDbId =
-        id &&
-        (/^\d+$/.test(id) || // 数値のみのID
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            id
-          )); // UUID形式
-
-      // 一時的に生成されたフロントエンドIDを除外（"field-123456789"のような形式）
-      const isGeneratedId = id && /^(field|hand|deck)-\d+-[a-z0-9]+$/.test(id);
-
-      if (!isValidDbId || isGeneratedId) {
-        // 有効なDBのIDでない場合は、既存のURLをそのまま使用
-        setActualImageUrl(imageUrl ? ensureAbsoluteUrl(imageUrl) : null);
-        return;
-      }
-
-      console.log(`[Card] 認証付きで画像URLを取得: cardId=${id}`);
-      const response = await api.get(apiEndpoints.cards.getImageById(id));
-
-      if (response.data && response.data.url) {
-        console.log(`[Card] 一時的なURL取得成功: ${response.data.url}`);
-        setActualImageUrl(response.data.url);
-        setImageError(false);
-      } else {
-        console.error(
-          `[Card] 画像URLの取得に失敗: サーバーがURLを返しませんでした`
-        );
-        setImageError(true);
-        // フォールバックとして直接のimageUrlを試す
-        setActualImageUrl(imageUrl ? ensureAbsoluteUrl(imageUrl) : null);
-      }
-    } catch (error) {
-      console.error(`[Card] 画像URLの取得に失敗:`, error);
-      setImageError(true);
-      // 認証エラーなどでフォールバックとして直接のimageUrlを試す
-      setActualImageUrl(imageUrl ? ensureAbsoluteUrl(imageUrl) : null);
-    }
-  };
-
   // カードIDが変更されたら画像URLを取得
   useEffect(() => {
     if (cardId && !isFlipped) {
-      fetchAuthenticatedImageUrl(cardId);
+      // デッキIDがある場合はデッキ経由のURLを使用
+      if (deckId) {
+        setActualImageUrl(
+          ensureAbsoluteUrl(apiEndpoints.cards.getImage(deckId, cardId))
+        );
+      } else {
+        // デッキIDがない場合は直接カードIDを使用
+        setActualImageUrl(
+          ensureAbsoluteUrl(apiEndpoints.cards.getImageById(cardId))
+        );
+      }
     } else if (imageUrl) {
       // cardIdがない場合や裏面の場合は直接imageUrlを使用
       setActualImageUrl(ensureAbsoluteUrl(imageUrl));
     } else {
       setActualImageUrl(null);
     }
-  }, [cardId, imageUrl, isFlipped]);
-
-  // シールドカードの処理を追加（裏面でも画像参照できるように）
-  const isShield = zone === "field" && isFlipped;
+  }, [cardId, imageUrl, isFlipped, deckId]);
 
   // zoneがあればそれを使い、なければtypeを使う移行期コード
   const actualZone = zone || type;
@@ -162,13 +125,6 @@ const Card = ({
     apiEndpoints.cards.getFallbackImage()
   );
 
-  // 画像読み込みエラー時の処理
-  const handleImageError = () => {
-    console.error("[Card] 画像の読み込みに失敗:", actualImageUrl);
-    setImageError(true);
-    setActualImageUrl(fallbackImageUrl);
-  };
-
   return (
     <div
       ref={dragRef}
@@ -189,34 +145,19 @@ const Card = ({
         <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-[8px] rounded">
           裏面
         </div>
-      ) : actualImageUrl ? (
-        // 表面表示 - 画像あり
-        <div
-          className="w-full h-full bg-cover bg-center rounded"
-          style={{
-            backgroundImage: `url(${actualImageUrl})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            width: "100%",
-            height: "100%",
-            borderRadius: "4px",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            userSelect: "none",
-            touchAction: "manipulation",
-            pointerEvents: "all",
-          }}
-          onError={handleImageError}
-        />
       ) : (
-        // 表面表示 - 画像なし
-        <>
-          <div className="font-bold text-center truncate text-[8px]">
-            {name}
-          </div>
-          {cost && <div className="text-[8px] text-center">{cost}</div>}
-        </>
+        // 表面表示
+        <div className="w-full h-full relative">
+          <img
+            src={actualImageUrl || fallbackImageUrl}
+            alt={name || "カード"}
+            className="w-full h-full object-cover rounded"
+            onError={() => {
+              console.error("[Card] 画像の読み込みに失敗:", actualImageUrl);
+              setActualImageUrl(fallbackImageUrl);
+            }}
+          />
+        </div>
       )}
     </div>
   );
