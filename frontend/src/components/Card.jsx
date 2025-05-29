@@ -177,6 +177,7 @@ const Card = ({
             src={actualImageUrl || fallbackImageUrl}
             alt={name || "カード"}
             className="w-full h-full object-cover rounded"
+            loading="lazy"
             onError={() => {
               console.error("[Card] 画像の読み込みに失敗:", actualImageUrl);
               setActualImageUrl(fallbackImageUrl);
