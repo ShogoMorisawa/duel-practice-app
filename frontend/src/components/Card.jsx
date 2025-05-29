@@ -47,19 +47,35 @@ const Card = ({
     return getAbsoluteImageUrl(url);
   };
 
+  // カードIDから数値部分を抽出する関数
+  const extractNumericId = (id) => {
+    if (!id) return null;
+    // 数値のみを抽出
+    const match = id.match(/\d+/);
+    return match ? match[0] : null;
+  };
+
   // カードIDが変更されたら画像URLを取得
   useEffect(() => {
     if (cardId && !isFlipped) {
-      // デッキIDがある場合はデッキ経由のURLを使用
-      if (deckId) {
-        setActualImageUrl(
-          ensureAbsoluteUrl(apiEndpoints.cards.getImage(deckId, cardId))
-        );
+      const numericId = extractNumericId(cardId);
+      if (numericId) {
+        // デッキIDがある場合はデッキ経由のURLを使用
+        if (deckId) {
+          setActualImageUrl(
+            ensureAbsoluteUrl(apiEndpoints.cards.getImage(deckId, numericId))
+          );
+        } else {
+          // デッキIDがない場合は直接カードIDを使用
+          setActualImageUrl(
+            ensureAbsoluteUrl(apiEndpoints.cards.getImageById(numericId))
+          );
+        }
+      } else if (imageUrl) {
+        // 数値IDが抽出できない場合は直接imageUrlを使用
+        setActualImageUrl(ensureAbsoluteUrl(imageUrl));
       } else {
-        // デッキIDがない場合は直接カードIDを使用
-        setActualImageUrl(
-          ensureAbsoluteUrl(apiEndpoints.cards.getImageById(cardId))
-        );
+        setActualImageUrl(null);
       }
     } else if (imageUrl) {
       // cardIdがない場合や裏面の場合は直接imageUrlを使用
