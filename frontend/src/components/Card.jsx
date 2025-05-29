@@ -61,6 +61,16 @@ const Card = ({
     return id;
   };
 
+  // ゲストデッキの画像URLを生成する関数
+  const getGuestDeckImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    // 画像名を抽出
+    const match = imageUrl.match(/\/([^/]+)$/);
+    if (!match) return null;
+    // ローカルの画像パスを返す
+    return `/images/${match[1]}`;
+  };
+
   // カードIDが変更されたら画像URLを取得
   useEffect(() => {
     if (cardId && !isFlipped) {
@@ -71,14 +81,14 @@ const Card = ({
           ensureAbsoluteUrl(apiEndpoints.cards.getImageById(numericId))
         );
       } else if (imageUrl) {
-        // 数値IDが抽出できない場合は直接imageUrlを使用
-        setActualImageUrl(ensureAbsoluteUrl(imageUrl));
+        // 数値IDが抽出できない場合は、ゲストデッキの画像URLを生成
+        setActualImageUrl(getGuestDeckImageUrl(imageUrl));
       } else {
         setActualImageUrl(null);
       }
     } else if (imageUrl) {
-      // cardIdがない場合や裏面の場合は直接imageUrlを使用
-      setActualImageUrl(ensureAbsoluteUrl(imageUrl));
+      // cardIdがない場合や裏面の場合は、ゲストデッキの画像URLを生成
+      setActualImageUrl(getGuestDeckImageUrl(imageUrl));
     } else {
       setActualImageUrl(null);
     }
