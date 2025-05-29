@@ -177,6 +177,7 @@ const DeckDetail = () => {
                   src={card.imageUrl}
                   alt={card.name || `カード${i + 1}`}
                   className="w-full h-full object-cover"
+                  loading={i < 5 ? "eager" : "lazy"}
                   onError={(e) => {
                     console.error(
                       "ゲストカード画像の読み込みに失敗:",
@@ -192,6 +193,7 @@ const DeckDetail = () => {
                   )}
                   alt={card.name || `カード${i + 1}`}
                   className="w-full h-full object-cover"
+                  loading={i < 5 ? "eager" : "lazy"}
                   onError={(e) => {
                     console.error(
                       "直接cardIdのURLでの画像読み込みに失敗:",
@@ -237,6 +239,7 @@ const DeckDetail = () => {
                   src={ensureAbsoluteUrl(card.image_url || card.imageUrl)}
                   alt={card.name || `カード${i + 1}`}
                   className="w-full h-full object-cover"
+                  loading={i < 5 ? "eager" : "lazy"}
                   onError={(e) => {
                     console.error(
                       "従来のimageUrlでの読み込みに失敗:",
