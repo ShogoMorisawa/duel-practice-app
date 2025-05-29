@@ -60,17 +60,10 @@ const Card = ({
     if (cardId && !isFlipped) {
       const numericId = extractNumericId(cardId);
       if (numericId) {
-        // デッキIDがある場合はデッキ経由のURLを使用
-        if (deckId) {
-          setActualImageUrl(
-            ensureAbsoluteUrl(apiEndpoints.cards.getImage(deckId, numericId))
-          );
-        } else {
-          // デッキIDがない場合は直接カードIDを使用
-          setActualImageUrl(
-            ensureAbsoluteUrl(apiEndpoints.cards.getImageById(numericId))
-          );
-        }
+        // 常に/api/cards/{id}/imageの形式を使用
+        setActualImageUrl(
+          ensureAbsoluteUrl(apiEndpoints.cards.getImageById(numericId))
+        );
       } else if (imageUrl) {
         // 数値IDが抽出できない場合は直接imageUrlを使用
         setActualImageUrl(ensureAbsoluteUrl(imageUrl));
@@ -83,7 +76,7 @@ const Card = ({
     } else {
       setActualImageUrl(null);
     }
-  }, [cardId, imageUrl, isFlipped, deckId]);
+  }, [cardId, imageUrl, isFlipped]);
 
   // zoneがあればそれを使い、なければtypeを使う移行期コード
   const actualZone = zone || type;
