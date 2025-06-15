@@ -63,3 +63,6 @@ gem 'jwt'
 # ユーザー認証
 gem 'devise'
 gem 'devise-jwt'
+
+# AWS S3
+gem 'aws-sdk-s3', require: false
