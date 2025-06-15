@@ -29,16 +29,13 @@ Rails.application.configure do
   end
 
   # Store uploaded files on the local file system (see config/storage.yml for options).
-  config.active_storage.service = :local
+  config.active_storage.service = :amazon
 
   # IPアドレスでのアクセスを許可
   config.hosts << "192.168.43.95"
   config.hosts << "192.168.1.21"
   # セキュリティ制限を緩和（開発環境のみ）
   config.hosts.clear
-
-  # ActiveStorageのホスト設定 - 動的に設定できるように変更
-  config.active_storage.service = :local
   
   # URL期限切れを無効化
   config.active_storage.service_urls_expire_in = nil

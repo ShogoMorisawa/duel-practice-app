@@ -4,28 +4,13 @@ module Api
       # リクエスト情報のログ記録
       Rails.logger.info "Content-Type: #{request.content_type}"
       Rails.logger.info "Parameters: #{params.keys.inspect}"
-      Rails.logger.info "File params: #{params[:file].present?}, Image params: #{params[:image].present?}"
       
-      # マルチパートフォームデータ処理
-      if params[:file].respond_to?(:tempfile)
-        uploaded_file = params[:file]
-      elsif params[:image].respond_to?(:tempfile)
-        uploaded_file = params[:image]
-      else
-        uploaded_file = nil
-        # フォームデータからファイルを検索
-        params.each do |key, value|
-          if value.respond_to?(:tempfile)
-            Rails.logger.info "Found file in param: #{key}"
-            uploaded_file = value
-            break
-          end
-        end
-      end
+      # アップロードされたファイルを取得
+      uploaded_file = params[:file] || params[:image]
       
-      if uploaded_file.nil?
-        Rails.logger.error "No valid file found in params: #{params.keys}"
-        return render json: { error: "画像が選択されていません" }, status: :unprocessable_entity
+      unless uploaded_file.is_a?(ActionDispatch::Http::UploadedFile)
+        Rails.logger.error "Invalid file upload: #{uploaded_file.class}"
+        return render json: { error: "有効な画像ファイルではありません" }, status: :unprocessable_entity
       end
 
       begin
@@ -33,20 +18,23 @@ module Api
         Rails.logger.info "File content type: #{uploaded_file.content_type}"
         Rails.logger.info "File size: #{uploaded_file.size} bytes"
         
-        # カードを作成してイメージを直接アタッチ
+        # カードを作成
         card = Card.create!(
           name: uploaded_file.original_filename,
           deck_id: nil # 一時的に未紐付けのカードとして保存
         )
         
-        # 画像をアタッチ
-        card.image.attach(
-          io: uploaded_file.tempfile,
-          filename: uploaded_file.original_filename,
-          content_type: uploaded_file.content_type
-        )
+        # 画像を直接アタッチ（S3に最適化）
+        card.image.attach(uploaded_file)
+        
+        # アタッチの成功を確認
+        unless card.image.attached?
+          raise "画像のアタッチに失敗しました"
+        end
         
         Rails.logger.info "Card created and image attached: #{card.id}"
+        Rails.logger.info "Storage service: #{card.image.blob.service_name}"
+        Rails.logger.info "Storage key: #{card.image.blob.key}"
         
         # URL生成
         card_image_url = card.image_url
