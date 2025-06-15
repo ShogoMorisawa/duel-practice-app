@@ -2,81 +2,100 @@
 
 ## 🎯 目的
 
-Render で稼働していた PostgreSQL データベースを、Supabase 上の新しいプロジェクトへ移行する。  
-Windows 環境から `pg_dump` と `pg_restore` を使用して、**データベースのバックアップとリストア**を行った。
+Render 上で稼働している Ruby on Rails アプリケーションのバックエンド DB（PostgreSQL）を、Supabase 上の新しい PostgreSQL データベースへ完全に移行する。
 
----
+移行プロセスは以下の 2 フェーズで実施：
 
-## ✅ 最終的な状況
+1. データの移行（pg_dump / pg_restore）
+2. アプリケーションの接続先変更（DATABASE_URL）
 
-- 移行は**成功**。
-- `backup.dump` の取得と、Supabase へのリストアを完了。
-- 所有者（role）に関するエラーは発生したが、これは既知の仕様であり問題なし。
-- テーブルとデータは正常に移行されたことを確認済み。
+## ✅ 最終的な結果
 
----
+- データ移行は完全に成功
+- Render のデータを Supabase に正しくリストア
+- Rails アプリは Supabase DB に接続し、正常に動作確認済み
 
-## 🧭 実行プロセスと問題解決の記録
+## 🧭 実行プロセスと問題解決の全記録
 
-### 🗂 フェーズ 1：pg_dump によるバックアップ取得
+### フェーズ 1：pg_dump による Render DB バックアップ
 
-#### 🔧 pg_dump の有効化
+#### 🔧 pg_dump の準備
 
-- **問題**：`pg_dump` が PowerShell で認識されずエラー。
-- **解決**：PostgreSQL の `bin` ディレクトリを PATH に追加。
+**問題**：Windows PowerShell 上で pg_dump が使えない。
 
-#### 🔐 認証情報の管理
+**解決**：PostgreSQL の bin ディレクトリを PATH に追加。
 
-- `.env` を `load-env.ps1` で読み込み、環境変数として安全に利用。
+#### 🔐 環境変数の管理
 
-#### 🌐 Render 接続エラー（DNS 関連）
+- `.env` を `load-env.ps1` で読み込み、安全に変数を渡す。
 
-- **問題**：`Name or service not known` エラー。
-- **原因 1**：`.env` に Render の**内部ホスト名**を指定していた。
-- **原因 2**：接続 URL を丸ごと `DB_HOST` に指定していた（ホスト名ではなく URL）。
-- **解決**：ホスト名・ユーザー名・パスワード・DB 名を正しく分解して `.env` に設定。
-- **結果**：`pg_dump` に成功し、`backup.dump` を取得。
+#### 🌐 DNS エラー（Render 接続）
 
----
+**問題**：Name or service not known エラー。
 
-### 🛠 フェーズ 2：pg_restore による Supabase へのリストア
+**原因**：
 
-#### 🌐 Supabase 接続エラー（再び DNS）
+- `.env` に内部ホスト名を指定していた
+- DATABASE_URL を -h に渡していた
 
-- **問題**：`Name or service not known` エラー（ping も失敗）。
-- **切り分け**：
-  - Supabase プロジェクトは "Healthy"
-  - テザリングでも同様の症状 → **ネットワークではなく PC 本体の問題**
-- **調査**：`nslookup` 結果より、Supabase のホストは**IPv6 のみ（AAAA）**を返すと判明。
-- **結論**：IPv6 にしか対応していない Supabase のホストに、PC が IPv4 で接続しようとして失敗。
+**解決**：ホスト名・ユーザー名・DB 名などを .env に明示的に設定。
+
+**結果**：pg_dump による backup.dump 取得に成功。
+
+### フェーズ 2：pg_restore による Supabase へのリストア
+
+#### 🌐 再び DNS エラー（Supabase 接続）
+
+**現象**：ping も pg_restore も失敗。
+
+**切り分け**：テザリング等でも再現 → PC 環境に問題あり。
+
+**調査結果**：Supabase は IPv6（AAAA レコード）のみ対応。PC は IPv4。
 
 #### 🧩 解決策：Supabase の Connection Pooler を利用
 
-- **方針転換**：Supabase の Connection Pooler を経由することで IPv4 での接続を実現。
-- **問題**：`FATAL: Tenant or user not found` エラー。
-- **原因**：Connection Pooler では `ユーザー名 = postgres.[project_ref]` 形式で指定する必要がある。
-- **解決**：正しいユーザー名 `postgres.tkvvsedmuemzasslffkb` を `-U` に指定。
+**変更**：接続先を Pooler ホストに切り替え。
 
-#### ✅ リストア完了
+**新たな問題**：FATAL: Tenant or user not found
 
-- `pg_restore` によるデータ移行成功。
-- 以下の所有権エラーが多数表示されたが、想定内のもの：
+**原因**：Pooler では postgres.[project_id] 形式のユーザー名が必要。
 
-- **分析**：旧 DB に存在した `backend` ユーザーを再現できなかったが、テーブルとデータは `postgres` に正常に割り当てられた。
+**解決**：正しいユーザー名を -U に指定しリストア成功。
 
----
+#### 📎 補足（所有権エラー）
 
-## 📝 学びと今後の応用
+**内容**：旧 DB の backend ロールが存在しないため多数の警告。
 
-- クラウド DB 移行における接続構成（Direct vs Pooler）や、IPv6/IPv4 非互換の影響を体験。
-- pg_dump/pg_restore によるマイグレーションに加え、接続周り・認証情報管理・DNS の問題まで対処。
-- 本移行記録は、将来的な構成変更や他クラウド（PlanetScale, Neon など）への移行時にも再利用可能。
+**結論**：無視して問題なし。データとテーブルは正常に移行完了。
 
----
+### 🔄 接続先の変更（Rails アプリ）
 
-## 📌 使用コマンドの一例
+#### DATABASE_URL の更新
 
-### backup.dump の取得：
+**手順**：Render の環境変数 DATABASE_URL を Supabase 用に変更。
+
+**問題**：URI::InvalidURIError
+
+**原因**：Supabase のパスワードに % や | などの URL 予約文字が含まれていた。
+
+**解決**：英数字のみのパスワードに変更。
+
+#### Prepared Statements エラー
+
+**現象**：PG::DuplicatePstatement で Rails アプリがクラッシュ。
+
+**原因**：Supabase の Transaction Pooler は prepared statements 非対応。
+
+**対策**：DATABASE_URL に `?prepared_statements=false` を追加。
+
+## 📝 学びと今後の活用
+
+- DNS, 接続形式, 認証構成, URL エンコードなど、クラウド移行における多面的な課題を経験
+- 他クラウド（PlanetScale, Neon 等）移行時にも活かせる知見
+
+## 💻 使用コマンド例
+
+### 🔹 backup.dump の取得
 
 ```powershell
 . .\load-env.ps1
@@ -84,9 +103,12 @@ $env:PGPASSWORD = $env:DB_PASSWORD
 pg_dump -h $env:DB_HOST -U $env:DB_USER -d $env:DB_NAME -F c -v -f backup.dump
 ```
 
-### Supabase へのリストア
+### 🔹 Supabase へのリストア
 
+```powershell
 $env:PGPASSWORD = "your_supabase_password"
-pg_restore -h db.connection-pooler.supabase.co `           -U postgres.projectrefid`
--d postgres `
--F c -v backup.dump
+pg_restore -h db.connection-pooler.supabase.co `
+  -U postgres.projectrefid `
+  -d postgres `
+  -F c -v backup.dump
+```
