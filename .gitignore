@@ -53,3 +53,15 @@ coverage.xml
 *.temp
 *.bak
 *.backup
+
+# データベース
+*.dump
+
+# zip
+*.zip
+
+# tar
+*.tar
+
+# tar.gz
+*.tar.gz
